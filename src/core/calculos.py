@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from decimal import Decimal, ROUND_HALF_UP
 
+from core.entidades import Arqueo
+
 CERO = Decimal("0")
 
 
@@ -35,3 +37,18 @@ def calcular_vuelto(total: Decimal, recibido: Decimal) -> Decimal:
     if recibido < total:
         raise ValueError("pago insuficiente")
     return recibido - total
+
+
+def calcular_arqueo(monto_inicial: Decimal, efectivo_ventas: Decimal,
+                    monto_contado: Decimal) -> Arqueo:
+    """Calcula el arqueo de caja: efectivo contado vs esperado."""
+    if monto_inicial < CERO or efectivo_ventas < CERO or monto_contado < CERO:
+        raise ValueError("los montos del arqueo deben ser no negativos")
+    esperado = monto_inicial + efectivo_ventas
+    return Arqueo(
+        monto_inicial=monto_inicial,
+        efectivo_ventas=efectivo_ventas,
+        esperado=esperado,
+        contado=monto_contado,
+        diferencia=monto_contado - esperado,
+    )
