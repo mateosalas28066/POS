@@ -89,3 +89,20 @@ def test_guardar_venta_persiste_lineas_y_pagos_y_se_relee(conn):
 
 def test_por_id_inexistente_es_none(conn):
     assert RepositorioVentasSQLite(conn).por_id(999) is None
+
+
+def test_anular_cambia_estado_a_anulada(conn):
+    p = _producto(conn)
+    linea = LineaVenta(producto_id=p.id, descripcion="Gaseosa", cantidad_o_peso=Decimal("1"),
+                       precio_unit=Decimal("1000"), impuesto=Decimal("0"),
+                       subtotal=Decimal("1000"))
+    venta = Venta(fecha=datetime(2026, 6, 25, 10, 0), lineas=(linea,),
+                  total=Decimal("1000"), total_impuestos=Decimal("0"))
+    pagos = [Pago(medio_pago_id=1, monto=Decimal("1000"))]
+    repo = RepositorioVentasSQLite(conn)
+
+    guardada = repo.guardar(venta, pagos)
+
+    repo.anular(guardada.id)
+
+    assert repo.por_id(guardada.id).estado == "anulada"

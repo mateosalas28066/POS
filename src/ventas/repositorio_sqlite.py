@@ -131,6 +131,11 @@ class RepositorioVentasSQLite:
                      referencia=f["referencia"], venta_id=f["venta_id"], id=f["id"])
                 for f in filas]
 
+    def anular(self, venta_id: int) -> None:
+        self._conn.execute(
+            "UPDATE ventas SET estado = 'anulada' WHERE id = ?", (venta_id,))
+        self._conn.commit()
+
     def totales_por_medio(self, caja_sesion_id: int) -> dict[int, Decimal]:
         filas = self._conn.execute(
             "SELECT p.medio_pago_id AS medio_pago_id, p.monto AS monto "
