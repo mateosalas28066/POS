@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import replace
+from decimal import Decimal
 
-from core.entidades import Categoria, Impuesto, Producto
+from core.entidades import Categoria, Impuesto, MovimientoInventario, Producto
 
 
 class RepositorioCategoriasSQLite:
@@ -72,3 +73,25 @@ class RepositorioProductosSQLite:
     def listar(self) -> list[Producto]:
         filas = self._conn.execute("SELECT * FROM productos ORDER BY id").fetchall()
         return [_fila_a_producto(f) for f in filas]
+
+
+class RepositorioInventarioSQLite:
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def registrar(self, m: MovimientoInventario) -> MovimientoInventario:
+        cur = self._conn.execute(
+            "INSERT INTO inventario_movimientos "
+            "(producto_id, lote_id, tipo, cantidad, fecha, ref) VALUES (?, ?, ?, ?, ?, ?)",
+            (m.producto_id, m.lote_id, m.tipo, m.cantidad, m.fecha.isoformat(), m.ref))
+        self._conn.commit()
+        return replace(m, id=cur.lastrowid)
+
+    def stock_de(self, producto_id: int) -> Decimal:
+        filas = self._conn.execute(
+            "SELECT tipo, cantidad FROM inventario_movimientos WHERE producto_id = ?",
+            (producto_id,)).fetchall()
+        total = Decimal("0")
+        for f in filas:
+            total += f["cantidad"] if f["tipo"] == "entrada" else -f["cantidad"]
+        return total
