@@ -1,6 +1,7 @@
 """Servicio de venta en caja. Python puro: arma líneas y totales vía puertos."""
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime
 from decimal import Decimal
 
@@ -122,3 +123,30 @@ class ServicioRegistroVenta:
         for movimiento in salidas_de_venta(guardada):
             self._inventario.registrar(movimiento)
         return guardada
+
+
+class VentaNoEncontrada(ValueError):
+    pass
+
+
+class VentaYaAnulada(ValueError):
+    pass
+
+
+class ServicioAnulacion:
+    """Reversa una venta: repone inventario y la marca 'anulada'. No mueve dinero."""
+
+    def __init__(self, ventas: RepositorioVentas, inventario: RepositorioInventario) -> None:
+        self._ventas = ventas
+        self._inventario = inventario
+
+    def anular(self, venta_id: int) -> Venta:
+        venta = self._ventas.por_id(venta_id)
+        if venta is None:
+            raise VentaNoEncontrada(f"venta inexistente: {venta_id}")
+        if venta.estado == "anulada":
+            raise VentaYaAnulada(f"venta {venta_id} ya estaba anulada")
+        self._ventas.anular(venta_id)
+        for movimiento in entradas_de_anulacion(venta):
+            self._inventario.registrar(movimiento)
+        return replace(venta, estado="anulada")
