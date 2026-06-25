@@ -29,6 +29,7 @@ repositorio. Las reglas fiscales DIAN viven en `core`; `facturacion_dian/` solo 
 | `src/core/` | Entidades, reglas (impuestos, precio×peso, arqueo), puertos, armado de factura DIAN |
 | `src/core/perifericos/` | Puerto `LectorPeso` + adaptadores `BalanzaSerial`, `CodigoPesoGS1`, `IngresoManual` |
 | `src/inventario/` | Productos, stock, movimientos (adaptadores SQLite) |
+| `src/ventas/` | Persistencia no-UI del ciclo venta/caja: clientes, medios de pago, ventas, pagos, sesiones de caja (adaptadores SQLite) |
 | `src/caja/` | UI Qt: venta, cobro, devoluciones, cierre/arqueo |
 | `src/facturacion_dian/` | Puerto `EmisorDIAN` + adaptadores (stub hoy, proveedor después) |
 | `src/sync_pdv/` | Patrón outbox para multi-local (diseñado, no implementado a fondo) |

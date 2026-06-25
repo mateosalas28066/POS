@@ -14,6 +14,7 @@ y facturación electrónica DIAN mañana.
 | `src/core/` | Dominio puro: entidades, reglas (impuestos, precio×peso, arqueo), puertos, armado de factura DIAN. Sin Qt ni SQLite. | Lógica de negocio que en Siesa está repartida entre PDV y ERP |
 | `src/core/perifericos/` | Puerto `LectorPeso` + adaptadores `BalanzaSerial`, `CodigoPesoGS1`, `IngresoManual`. | Balanzas / códigos de peso del PDV (fruver y carne) |
 | `src/inventario/` | Productos, stock, movimientos (adaptadores SQLite). | Módulo Inventarios de Siesa |
+| `src/ventas/` | Persistencia no-UI del ciclo venta/caja: clientes, medios de pago, ventas, pagos, sesiones de caja (adaptadores SQLite). | Tablas transaccionales del PDV |
 | `src/caja/` | UI Qt: venta, cobro, devoluciones, cierre/arqueo. | Capa de caja/PDV (terminal) de Siesa |
 | `src/facturacion_dian/` | Puerto `EmisorDIAN` + adaptadores (stub hoy, proveedor después). | Capa de facturación electrónica / e-Invoicing |
 | `src/sync_pdv/` | Patrón outbox para multi-local (diseñado, no implementado a fondo). | Transmisión/recepción PDV almacén de Siesa |
@@ -32,5 +33,14 @@ y facturación electrónica DIAN mañana.
 
 ## Estado actual
 
-Organización del workspace y documentación **listas**. Aún **no se escribe código de negocio**:
-el siguiente paso es el plan de implementación (epics E2 + E4 primero).
+| Epic | Descripción | Estado |
+|---|---|---|
+| E1 | ServicioVenta, UI de caja (PySide6), persistencia ventas | ✅ implementado |
+| E2 | Inventario (productos, stock, movimientos) | ✅ implementado |
+| E3 | Cierre de caja / arqueo + descuento de inventario | ✅ implementado |
+| E4 | Venta por peso (balanza, GS1, manual) | ✅ implementado |
+| E5–E7 | Clientes, devoluciones, reportes | pendiente |
+| E6 | Sync offline/outbox | pendiente |
+| DIAN | Facturación electrónica (stub → proveedor) | pendiente |
+
+Suite: **85 passed, 1 skipped** (2026-06-25).
