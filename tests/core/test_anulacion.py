@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 import pytest
 from dataclasses import replace
-from core.entidades import LineaVenta, Venta, MovimientoInventario
+from core.entidades import LineaVenta, Venta
 from core.servicio_venta import entradas_de_anulacion, ServicioAnulacion, VentaNoEncontrada, VentaYaAnulada
 
 
