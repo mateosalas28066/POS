@@ -5,8 +5,10 @@ from datetime import datetime
 from decimal import Decimal
 
 from core.calculos import impuesto_incluido, subtotal_por_peso, subtotal_por_unidad
-from core.entidades import LineaVenta, Venta
-from core.puertos import RepositorioImpuestos, RepositorioProductos
+from core.entidades import LineaVenta, MovimientoInventario, Pago, Venta
+from core.puertos import (
+    RepositorioImpuestos, RepositorioInventario, RepositorioProductos, RepositorioVentas,
+)
 
 CERO = Decimal("0")
 
@@ -82,3 +84,28 @@ class ServicioVenta:
             cliente_id=cliente_id,
             estado="pagada",
         )
+
+
+def salidas_de_venta(venta: Venta) -> list[MovimientoInventario]:
+    return [
+        MovimientoInventario(
+            producto_id=linea.producto_id,
+            tipo="salida",
+            cantidad=linea.cantidad_o_peso,
+            fecha=venta.fecha,
+            ref=f"venta:{venta.id}",
+        )
+        for linea in venta.lineas
+    ]
+
+
+class ServicioRegistroVenta:
+    def __init__(self, ventas: RepositorioVentas, inventario: RepositorioInventario) -> None:
+        self._ventas = ventas
+        self._inventario = inventario
+
+    def registrar(self, venta: Venta, pagos: list[Pago]) -> Venta:
+        guardada = self._ventas.guardar(venta, pagos)
+        for movimiento in salidas_de_venta(guardada):
+            self._inventario.registrar(movimiento)
+        return guardada
