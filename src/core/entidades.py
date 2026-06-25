@@ -130,3 +130,34 @@ class Venta:
     def __post_init__(self) -> None:
         if self.estado not in ESTADOS_VENTA:
             raise ValueError(f"estado inválido: {self.estado!r}")
+
+
+ESTADOS_CAJA = ("abierta", "cerrada")
+
+
+@dataclass(frozen=True)
+class CajaSesion:
+    apertura_fecha: datetime
+    monto_inicial: Decimal
+    usuario_id: int | None = None
+    cierre_fecha: datetime | None = None
+    monto_contado: Decimal | None = None
+    estado: str = "abierta"
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.estado not in ESTADOS_CAJA:
+            raise ValueError(f"estado de caja invalido: {self.estado!r}")
+        if self.monto_inicial < CERO:
+            raise ValueError("monto_inicial no puede ser negativo")
+        if self.monto_contado is not None and self.monto_contado < CERO:
+            raise ValueError("monto_contado no puede ser negativo")
+
+
+@dataclass(frozen=True)
+class Arqueo:
+    monto_inicial: Decimal
+    efectivo_ventas: Decimal
+    esperado: Decimal
+    contado: Decimal
+    diferencia: Decimal
