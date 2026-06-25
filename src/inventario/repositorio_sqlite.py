@@ -30,6 +30,11 @@ class RepositorioImpuestosSQLite:
         self._conn.commit()
         return replace(impuesto, id=cur.lastrowid)
 
+    def por_id(self, id: int) -> Impuesto | None:
+        f = self._conn.execute("SELECT * FROM impuestos WHERE id = ?", (id,)).fetchone()
+        return Impuesto(nombre=f["nombre"], tarifa=f["tarifa"],
+                        codigo_dian=f["codigo_dian"], id=f["id"]) if f else None
+
 
 def _fila_a_producto(f: sqlite3.Row) -> Producto:
     return Producto(
