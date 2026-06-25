@@ -44,7 +44,11 @@ class PantallaVenta(QWidget):
             return
         peso_txt = self._peso.text().strip()
         peso = Decimal(peso_txt) if peso_txt else None
-        linea = self._servicio.agregar(codigo, peso_kg=peso)
+        try:
+            linea = self._servicio.agregar(codigo, peso_kg=peso)
+        except ValueError as exc:
+            self._total.setText(f"Error: {exc}")
+            return
         fila = self._tabla.rowCount()
         self._tabla.insertRow(fila)
         self._tabla.setItem(fila, 0, QTableWidgetItem(linea.descripcion))

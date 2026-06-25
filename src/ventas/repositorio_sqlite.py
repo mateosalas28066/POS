@@ -89,13 +89,13 @@ class RepositorioVentasSQLite:
             (venta.fecha.isoformat(), venta.usuario_id, venta.caja_sesion_id,
              venta.cliente_id, venta.total, venta.total_impuestos, venta.estado))
         venta_id = cur.lastrowid
-        for l in venta.lineas:
+        for linea in venta.lineas:
             self._conn.execute(
                 "INSERT INTO venta_lineas "
                 "(venta_id, producto_id, descripcion, cantidad_o_peso, precio_unit, "
                 "impuesto, subtotal) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (venta_id, l.producto_id, l.descripcion, l.cantidad_o_peso,
-                 l.precio_unit, l.impuesto, l.subtotal))
+                (venta_id, linea.producto_id, linea.descripcion, linea.cantidad_o_peso,
+                 linea.precio_unit, linea.impuesto, linea.subtotal))
         for pago in pagos:
             self._conn.execute(
                 "INSERT INTO pagos (venta_id, medio_pago_id, monto, referencia) "

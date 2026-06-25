@@ -108,6 +108,12 @@ class LineaVenta:
     venta_id: int | None = None
     id: int | None = None
 
+    def __post_init__(self) -> None:
+        if self.subtotal < CERO or self.impuesto < CERO or self.precio_unit < CERO:
+            raise ValueError("valores monetarios de LineaVenta deben ser no negativos")
+        if self.cantidad_o_peso <= CERO:
+            raise ValueError("cantidad_o_peso debe ser positiva")
+
 
 @dataclass(frozen=True)
 class Venta:
