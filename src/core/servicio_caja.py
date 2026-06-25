@@ -1,3 +1,4 @@
+"""Servicio de apertura/cierre y arqueo de caja. Python puro: solo conoce puertos."""
 from __future__ import annotations
 from dataclasses import replace
 from datetime import datetime
@@ -8,14 +9,18 @@ from core.puertos import RepositorioCajaSesiones, RepositorioVentas
 
 CERO = Decimal("0")
 
+
 class CajaYaAbierta(RuntimeError):
     pass
+
 
 class CajaNoEncontrada(ValueError):
     pass
 
+
 class CajaNoAbierta(ValueError):
     pass
+
 
 class ServicioCaja:
     def __init__(self, sesiones: RepositorioCajaSesiones, ventas: RepositorioVentas,
@@ -40,6 +45,8 @@ class ServicioCaja:
         sesion = self._sesiones.por_id(sesion_id)
         if sesion is None:
             raise CajaNoEncontrada(f"sesion de caja inexistente: {sesion_id}")
+        if sesion.estado != "abierta":
+            raise CajaNoAbierta(f"la sesion {sesion_id} no esta abierta")
         return self._arqueo(sesion, monto_contado)
 
     def cerrar(self, *, sesion_id: int, fecha: datetime,
