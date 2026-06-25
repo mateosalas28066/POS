@@ -99,6 +99,19 @@ def salidas_de_venta(venta: Venta) -> list[MovimientoInventario]:
     ]
 
 
+def entradas_de_anulacion(venta: Venta) -> list[MovimientoInventario]:
+    return [
+        MovimientoInventario(
+            producto_id=linea.producto_id,
+            tipo="entrada",
+            cantidad=linea.cantidad_o_peso,
+            fecha=venta.fecha,
+            ref=f"anulacion:{venta.id}",
+        )
+        for linea in venta.lineas
+    ]
+
+
 class ServicioRegistroVenta:
     def __init__(self, ventas: RepositorioVentas, inventario: RepositorioInventario) -> None:
         self._ventas = ventas
