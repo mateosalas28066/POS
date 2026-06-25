@@ -5,7 +5,9 @@ import sqlite3
 from dataclasses import replace
 from datetime import datetime
 
-from core.entidades import Cliente, LineaVenta, MedioPago, Pago, Venta
+from decimal import Decimal
+
+from core.entidades import CajaSesion, Cliente, LineaVenta, MedioPago, Pago, Venta
 
 
 def _fila_a_cliente(f: sqlite3.Row) -> Cliente:
@@ -128,3 +130,58 @@ class RepositorioVentasSQLite:
         return [Pago(medio_pago_id=f["medio_pago_id"], monto=f["monto"],
                      referencia=f["referencia"], venta_id=f["venta_id"], id=f["id"])
                 for f in filas]
+
+    def totales_por_medio(self, caja_sesion_id: int) -> dict[int, Decimal]:
+        filas = self._conn.execute(
+            "SELECT p.medio_pago_id AS medio_pago_id, p.monto AS monto "
+            "FROM pagos p JOIN ventas v ON v.id = p.venta_id "
+            "WHERE v.caja_sesion_id = ? AND v.estado = 'pagada'",
+            (caja_sesion_id,)).fetchall()
+        totales: dict[int, Decimal] = {}
+        for f in filas:
+            totales[f["medio_pago_id"]] = totales.get(f["medio_pago_id"], Decimal("0")) + f["monto"]
+        return totales
+
+
+def _fila_a_sesion(f: sqlite3.Row) -> CajaSesion:
+    return CajaSesion(
+        apertura_fecha=datetime.fromisoformat(f["apertura_fecha"]),
+        monto_inicial=f["monto_inicial"],
+        usuario_id=f["usuario_id"],
+        cierre_fecha=datetime.fromisoformat(f["cierre_fecha"]) if f["cierre_fecha"] else None,
+        monto_contado=f["monto_contado"],
+        estado=f["estado"],
+        id=f["id"],
+    )
+
+
+class RepositorioCajaSesionesSQLite:
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def abrir(self, s: CajaSesion) -> CajaSesion:
+        cur = self._conn.execute(
+            "INSERT INTO caja_sesiones (usuario_id, apertura_fecha, monto_inicial, estado) "
+            "VALUES (?, ?, ?, ?)",
+            (s.usuario_id, s.apertura_fecha.isoformat(), s.monto_inicial, s.estado))
+        self._conn.commit()
+        return replace(s, id=cur.lastrowid)
+
+    def cerrar(self, s: CajaSesion) -> CajaSesion:
+        self._conn.execute(
+            "UPDATE caja_sesiones SET cierre_fecha = ?, monto_contado = ?, estado = ? "
+            "WHERE id = ?",
+            (s.cierre_fecha.isoformat() if s.cierre_fecha else None,
+             s.monto_contado, s.estado, s.id))
+        self._conn.commit()
+        return s
+
+    def por_id(self, id: int) -> CajaSesion | None:
+        f = self._conn.execute("SELECT * FROM caja_sesiones WHERE id = ?", (id,)).fetchone()
+        return _fila_a_sesion(f) if f else None
+
+    def abierta(self) -> CajaSesion | None:
+        f = self._conn.execute(
+            "SELECT * FROM caja_sesiones WHERE estado = 'abierta' ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        return _fila_a_sesion(f) if f else None
