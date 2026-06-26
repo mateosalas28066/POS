@@ -10,7 +10,8 @@ from core.entidades import (
     Devolucion, ItemDevolucion, LineaDevolucion, LineaVenta, MovimientoInventario, Pago, Venta,
 )
 from core.puertos import (
-    RepositorioImpuestos, RepositorioInventario, RepositorioProductos, RepositorioVentas,
+    RepositorioDevoluciones, RepositorioImpuestos, RepositorioInventario,
+    RepositorioProductos, RepositorioVentas,
 )
 
 CERO = Decimal("0")
@@ -215,3 +216,47 @@ def _todo_devuelto(venta: Venta, ya_devuelto: dict[int, Decimal],
         acumulado[linea.venta_linea_id] = (
             acumulado.get(linea.venta_linea_id, CERO) + linea.cantidad_o_peso)
     return all(acumulado.get(linea.id, CERO) == linea.cantidad_o_peso for linea in venta.lineas)
+
+
+class VentaNoDevolvible(ValueError):
+    pass
+
+
+class ReembolsoDescuadrado(ValueError):
+    pass
+
+
+class ServicioDevolucion:
+    """Devuelve líneas de una venta: repone inventario y reembolsa dinero. Solo puertos."""
+
+    def __init__(self, ventas: RepositorioVentas, devoluciones: RepositorioDevoluciones,
+                 inventario: RepositorioInventario) -> None:
+        self._ventas = ventas
+        self._devoluciones = devoluciones
+        self._inventario = inventario
+
+    def devolver(self, venta_id: int, items: list[ItemDevolucion], reembolsos: list[Pago], *,
+                 fecha: datetime, caja_sesion_id: int | None = None,
+                 usuario_id: int | None = None) -> Devolucion:
+        venta = self._ventas.por_id(venta_id)
+        if venta is None:
+            raise VentaNoEncontrada(f"venta inexistente: {venta_id}")
+        if venta.estado in ("anulada", "devuelta"):
+            raise VentaNoDevolvible(f"venta {venta_id} en estado {venta.estado!r}")
+        ya_devuelto = self._devoluciones.devuelto_por_linea(venta_id)
+        lineas = construir_lineas_devolucion(venta, items, ya_devuelto)
+        total = sum((l.subtotal for l in lineas), CERO)
+        total_impuestos = sum((l.impuesto for l in lineas), CERO)
+        if sum((r.monto for r in reembolsos), CERO) != total:
+            raise ReembolsoDescuadrado(
+                f"reembolso {sum((r.monto for r in reembolsos), CERO)} ≠ devuelto {total}")
+        dev = Devolucion(
+            venta_id=venta_id, fecha=fecha, lineas=tuple(lineas),
+            total=total, total_impuestos=total_impuestos, reembolsos=tuple(reembolsos),
+            caja_sesion_id=caja_sesion_id, usuario_id=usuario_id)
+        guardada = self._devoluciones.guardar(dev)
+        for movimiento in entradas_de_devolucion(guardada):
+            self._inventario.registrar(movimiento)
+        nuevo_estado = "devuelta" if _todo_devuelto(venta, ya_devuelto, lineas) else "devuelta_parcial"
+        self._ventas.marcar_estado(venta_id, nuevo_estado)
+        return guardada
