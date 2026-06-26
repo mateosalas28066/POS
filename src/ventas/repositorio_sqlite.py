@@ -172,6 +172,29 @@ class RepositorioVentasSQLite:
             totales[f["medio_pago_id"]] = totales.get(f["medio_pago_id"], Decimal("0")) - f["monto"]
         return totales
 
+    def ventas_en(self, desde: datetime, hasta: datetime) -> list[Venta]:
+        ids = self._conn.execute(
+            "SELECT id FROM ventas "
+            "WHERE fecha >= ? AND fecha < ? AND estado != 'anulada' ORDER BY id",
+            (desde.isoformat(), hasta.isoformat())).fetchall()
+        return [self.por_id(f["id"]) for f in ids]
+
+    def ventas_de_sesion(self, caja_sesion_id: int) -> list[Venta]:
+        ids = self._conn.execute(
+            "SELECT id FROM ventas "
+            "WHERE caja_sesion_id = ? AND estado != 'anulada' ORDER BY id",
+            (caja_sesion_id,)).fetchall()
+        return [self.por_id(f["id"]) for f in ids]
+
+    def pagos_en(self, desde: datetime, hasta: datetime) -> list[Pago]:
+        filas = self._conn.execute(
+            "SELECT p.* FROM pagos p JOIN ventas v ON v.id = p.venta_id "
+            "WHERE v.fecha >= ? AND v.fecha < ? AND v.estado != 'anulada' ORDER BY p.id",
+            (desde.isoformat(), hasta.isoformat())).fetchall()
+        return [Pago(medio_pago_id=f["medio_pago_id"], monto=f["monto"],
+                     referencia=f["referencia"], venta_id=f["venta_id"], id=f["id"])
+                for f in filas]
+
 
 def _fila_a_sesion(f: sqlite3.Row) -> CajaSesion:
     return CajaSesion(
@@ -281,6 +304,18 @@ class RepositorioDevolucionesSQLite:
     def de_venta(self, venta_id: int) -> list[Devolucion]:
         ids = self._conn.execute(
             "SELECT id FROM devoluciones WHERE venta_id = ? ORDER BY id", (venta_id,)).fetchall()
+        return [self.por_id(f["id"]) for f in ids]
+
+    def devoluciones_en(self, desde: datetime, hasta: datetime) -> list[Devolucion]:
+        ids = self._conn.execute(
+            "SELECT id FROM devoluciones WHERE fecha >= ? AND fecha < ? ORDER BY id",
+            (desde.isoformat(), hasta.isoformat())).fetchall()
+        return [self.por_id(f["id"]) for f in ids]
+
+    def de_sesion(self, caja_sesion_id: int) -> list[Devolucion]:
+        ids = self._conn.execute(
+            "SELECT id FROM devoluciones WHERE caja_sesion_id = ? ORDER BY id",
+            (caja_sesion_id,)).fetchall()
         return [self.por_id(f["id"]) for f in ids]
 
     def devuelto_por_linea(self, venta_id: int) -> dict[int, Decimal]:
