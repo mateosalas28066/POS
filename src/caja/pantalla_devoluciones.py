@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
-from caja.contexto import ContextoApp
+from caja.contexto import EFECTIVO_MEDIO_PAGO_ID, ContextoApp
 from caja.dialogos.dialogo_cobro import DialogoCobro
 from caja.formato import formato_cantidad, formato_moneda
 from core.entidades import ItemDevolucion, Pago, Venta
@@ -127,7 +127,7 @@ class PantallaDevoluciones(QWidget):
             cantidad = Decimal(str(spin.value()))
             if cantidad > CERO and linea.cantidad_o_peso > CERO:
                 ratio = cantidad / linea.cantidad_o_peso
-                total += (linea.subtotal * ratio).quantize(Decimal("1"))
+                total += (linea.subtotal * ratio).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
         return total
 
     def _refrescar_total(self) -> None:
@@ -142,7 +142,7 @@ class PantallaDevoluciones(QWidget):
             return
         total = self._total_a_devolver()
         dlg = DialogoCobro(total, self._ctx.repo_medios_pago.listar(),
-                           modo="reembolso", efectivo_id=1, parent=self)
+                           modo="reembolso", efectivo_id=EFECTIVO_MEDIO_PAGO_ID, parent=self)
         if dlg.exec() == DialogoCobro.Accepted:
             self._procesar(dlg.pagos())
 

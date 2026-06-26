@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QButtonGroup, QHBoxLayout, QMainWindow, QStackedWidget, QVBoxLayout, QWidget,
 )
 
-from caja.contexto import ContextoApp
+from caja.contexto import EFECTIVO_MEDIO_PAGO_ID, ContextoApp
 from caja.formato import formato_moneda
 from caja.pantalla_cierre import PantallaCierre
 from caja.pantalla_clientes import PantallaClientes
@@ -88,7 +88,7 @@ class VentanaPrincipal(QMainWindow):
         if sesion is None:
             self.statusBar().showMessage("Caja cerrada")
             return
-        efectivo = self._ctx.repo_ventas.totales_por_medio(sesion.id).get(1, None)
+        efectivo = self._ctx.repo_ventas.totales_por_medio(sesion.id).get(EFECTIVO_MEDIO_PAGO_ID, None)
         monto = efectivo if efectivo is not None else Decimal("0")
         self.statusBar().showMessage(
             f"● Caja #{sesion.id} abierta  ·  Efectivo: {formato_moneda(monto)}")

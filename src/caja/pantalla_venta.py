@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QPushButton, QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
-from caja.contexto import ContextoApp
+from caja.contexto import EFECTIVO_MEDIO_PAGO_ID, ContextoApp
 from caja.dialogos.dialogo_cobro import DialogoCobro
 from caja.formato import formato_cantidad, formato_moneda
 from caja.widgets import TarjetaProducto
@@ -190,7 +190,7 @@ class PantallaVenta(QWidget):
         if sesion is None or not self._venta.lineas:
             return
         dlg = DialogoCobro(self._total_actual(), self._ctx.repo_medios_pago.listar(),
-                           modo="cobro", efectivo_id=1, parent=self)
+                           modo="cobro", efectivo_id=EFECTIVO_MEDIO_PAGO_ID, parent=self)
         if dlg.exec() != DialogoCobro.Accepted:
             return
         self._registrar_pagos(dlg.pagos(), sesion.id)

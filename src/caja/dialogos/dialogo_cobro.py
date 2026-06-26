@@ -15,7 +15,7 @@ CERO = Decimal("0")
 
 class DialogoCobro(QDialog):
     def __init__(self, total: Decimal, medios: list[MedioPago], *, modo: str = "cobro",
-                 efectivo_id: int = 1, parent=None) -> None:
+                 efectivo_id: int, parent=None) -> None:
         super().__init__(parent)
         self._total = total
         self._modo = modo
