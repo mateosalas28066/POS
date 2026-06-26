@@ -63,7 +63,7 @@ class MovimientoInventario:
             raise ValueError("cantidad debe ser positiva")
 
 
-ESTADOS_VENTA = ("pagada", "anulada")
+ESTADOS_VENTA = ("pagada", "anulada", "devuelta_parcial", "devuelta")
 
 
 @dataclass(frozen=True)
@@ -161,3 +161,52 @@ class Arqueo:
     esperado: Decimal
     contado: Decimal
     diferencia: Decimal
+
+
+ESTADOS_DEVOLUCION = ("emitida",)
+
+
+@dataclass(frozen=True)
+class ItemDevolucion:
+    """Input del cajero: qué línea y cuánto se devuelve. Lo demás lo deriva el dominio."""
+    venta_linea_id: int
+    cantidad_o_peso: Decimal
+
+    def __post_init__(self) -> None:
+        if self.cantidad_o_peso <= CERO:
+            raise ValueError("cantidad_o_peso a devolver debe ser positiva")
+
+
+@dataclass(frozen=True)
+class LineaDevolucion:
+    producto_id: int
+    cantidad_o_peso: Decimal   # cuánto se devuelve de la línea (>0; unidad o kg)
+    impuesto: Decimal          # IVA contenido devuelto (prorrateado)
+    subtotal: Decimal          # dinero devuelto por esta línea (IVA incluido)
+    venta_linea_id: int | None = None
+    devolucion_id: int | None = None
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.subtotal < CERO or self.impuesto < CERO:
+            raise ValueError("valores monetarios de LineaDevolucion deben ser no negativos")
+        if self.cantidad_o_peso <= CERO:
+            raise ValueError("cantidad_o_peso debe ser positiva")
+
+
+@dataclass(frozen=True)
+class Devolucion:
+    venta_id: int
+    fecha: datetime
+    lineas: tuple[LineaDevolucion, ...]
+    total: Decimal             # Σ subtotales devueltos = dinero a reembolsar
+    total_impuestos: Decimal
+    reembolsos: tuple[Pago, ...]   # salida de dinero por medio (reusa Pago; monto>0)
+    caja_sesion_id: int | None = None   # sesión donde SALE el dinero (la abierta hoy)
+    usuario_id: int | None = None
+    estado: str = "emitida"
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.estado not in ESTADOS_DEVOLUCION:
+            raise ValueError(f"estado de devolución inválido: {self.estado!r}")
