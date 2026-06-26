@@ -90,7 +90,8 @@ migraciones (no fuerza un `id` fijo; `consumidor_final()` resuelve por identific
 - Botones **Crear** y **Guardar** (editar el seleccionado), campo de **búsqueda**
   por identificación.
 - Solo cablea señales → `ServicioClientes`. Los `ValueError` de dominio se muestran
-  en un label de estado, como hace `PantallaVenta` (`self._estado.setText(f"Error: {exc}")`).
+  en un label de estado propio (`_estado`), siguiendo el patrón de `PantallaVenta`
+  (que reutiliza su label `_total` con `setText(f"Error: {exc}")`).
 
 `scripts/clientes.py` — launcher espejo de `scripts/caja.py`: conecta la BD, aplica
 migraciones, construye `ServicioClientes(RepositorioClientesSQLite(conn))`, muestra
