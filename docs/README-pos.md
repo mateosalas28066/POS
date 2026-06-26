@@ -42,8 +42,8 @@ y facturación electrónica DIAN mañana.
 | E4 | Venta por peso (balanza, GS1, manual) | ✅ implementado |
 | E5 | Clientes (maestro + ServicioClientes + pantalla CRUD Qt) | ✅ implementado |
 | E6 | Devoluciones con reembolso: parcial/total, repone stock, reembolsa y netea el arqueo (sin UI Qt) | ✅ implementado |
-| E7 | Reportes | pendiente |
+| E7 | Reportes: ventas por período, cierre/arqueo de sesión, inventario/movimientos (solo dominio + SQLite, sin UI) | ✅ implementado |
 | E8 | Sync offline/outbox | pendiente |
 | DIAN | Facturación electrónica (stub → proveedor) | pendiente |
 
-Suite: **128 passed, 2 skipped** (2026-06-25).
+Suite: **140 passed, 2 skipped** (2026-06-25).
