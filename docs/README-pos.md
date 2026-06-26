@@ -11,11 +11,11 @@ y facturación electrónica DIAN mañana.
 
 | Carpeta | Rol | Relación con Siesa POS/PDV |
 |---|---|---|
-| `src/core/` | Dominio puro: entidades, reglas (impuestos, precio×peso, arqueo), puertos, armado de factura DIAN. Sin Qt ni SQLite. | Lógica de negocio que en Siesa está repartida entre PDV y ERP |
+| `src/core/` | Dominio puro: entidades, servicios (ServicioVenta, ServicioCaja, ServicioClientes), reglas (impuestos, precio×peso, arqueo), puertos, armado de factura DIAN. Sin Qt ni SQLite. | Lógica de negocio que en Siesa está repartida entre PDV y ERP |
 | `src/core/perifericos/` | Puerto `LectorPeso` + adaptadores `BalanzaSerial`, `CodigoPesoGS1`, `IngresoManual`. | Balanzas / códigos de peso del PDV (fruver y carne) |
 | `src/inventario/` | Productos, stock, movimientos (adaptadores SQLite). | Módulo Inventarios de Siesa |
 | `src/ventas/` | Persistencia no-UI del ciclo venta/caja: clientes, medios de pago, ventas, pagos, sesiones de caja (adaptadores SQLite). | Tablas transaccionales del PDV |
-| `src/caja/` | UI Qt: venta, cobro, devoluciones, cierre/arqueo. | Capa de caja/PDV (terminal) de Siesa |
+| `src/caja/` | UI Qt: venta, clientes, cobro, devoluciones, cierre/arqueo. | Capa de caja/PDV (terminal) de Siesa |
 | `src/facturacion_dian/` | Puerto `EmisorDIAN` + adaptadores (stub hoy, proveedor después). | Capa de facturación electrónica / e-Invoicing |
 | `src/sync_pdv/` | Patrón outbox para multi-local (diseñado, no implementado a fondo). | Transmisión/recepción PDV almacén de Siesa |
 | `scripts/` | Migraciones, seed de datos, utilidades CLI. | — |
