@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import replace
+from datetime import datetime
 from decimal import Decimal
 
 from core.entidades import Categoria, Impuesto, MovimientoInventario, Producto
@@ -80,6 +81,18 @@ class RepositorioProductosSQLite:
         return [_fila_a_producto(f) for f in filas]
 
 
+def _fila_a_movimiento(f: sqlite3.Row) -> MovimientoInventario:
+    return MovimientoInventario(
+        producto_id=f["producto_id"],
+        tipo=f["tipo"],
+        cantidad=f["cantidad"],
+        fecha=datetime.fromisoformat(f["fecha"]),
+        ref=f["ref"],
+        lote_id=f["lote_id"],
+        id=f["id"],
+    )
+
+
 class RepositorioInventarioSQLite:
     def __init__(self, conn: sqlite3.Connection) -> None:
         self._conn = conn
@@ -100,3 +113,10 @@ class RepositorioInventarioSQLite:
         for f in filas:
             total += f["cantidad"] if f["tipo"] == "entrada" else -f["cantidad"]
         return total
+
+    def movimientos_en(self, desde: datetime, hasta: datetime) -> list[MovimientoInventario]:
+        filas = self._conn.execute(
+            "SELECT * FROM inventario_movimientos "
+            "WHERE fecha >= ? AND fecha < ? ORDER BY id",
+            (desde.isoformat(), hasta.isoformat())).fetchall()
+        return [_fila_a_movimiento(f) for f in filas]
