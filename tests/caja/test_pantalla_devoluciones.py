@@ -8,7 +8,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from datetime import datetime  # noqa: E402
 from decimal import Decimal  # noqa: E402
 
-from PySide6.QtWidgets import QApplication  # noqa: E402
+from PySide6.QtWidgets import QApplication, QMessageBox  # noqa: E402
 
 from core.entidades import Pago  # noqa: E402
 from caja.contexto import ContextoApp  # noqa: E402
@@ -46,8 +46,10 @@ def test_buscar_venta_inexistente_muestra_error():
     assert win._venta is None
 
 
-def test_procesar_devolucion_total():
+def test_procesar_devolucion_total(monkeypatch):
     _app = QApplication.instance() or QApplication([])
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    monkeypatch.setattr(QMessageBox, "critical", lambda *a, **k: None)
     ctx, venta = _ctx_con_venta()
     win = PantallaDevoluciones(ctx)
     win._id_venta.setText(str(venta.id))
