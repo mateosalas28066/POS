@@ -1,4 +1,3 @@
-# tests/caja/test_pantalla_venta.py
 import os
 
 import pytest
@@ -6,30 +5,57 @@ import pytest
 pytest.importorskip("PySide6")
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from datetime import datetime  # noqa: E402
 from decimal import Decimal  # noqa: E402
 
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
-from core.entidades import Impuesto, Producto  # noqa: E402
-from core.servicio_venta import ServicioVenta  # noqa: E402
+from caja.contexto import ContextoApp  # noqa: E402
 from caja.pantalla_venta import PantallaVenta  # noqa: E402
 
 
-class _FakeProductos:
-    def por_codigo(self, codigo_barras: str):
-        return Producto(codigo_barras="B", nombre="Gaseosa", precio=Decimal("3500"),
-                        impuesto_id=10, id=1)
+def _ctx():
+    return ContextoApp.crear(":memory:")
 
 
-class _FakeImpuestos:
-    def por_id(self, id: int):
-        return Impuesto(nombre="IVA", tarifa=Decimal("0.19"), id=10)
-
-
-def test_pantalla_agrega_linea_y_actualiza_total():
+def test_pantalla_construye_y_lista_productos():
     _app = QApplication.instance() or QApplication([])
-    win = PantallaVenta(ServicioVenta(_FakeProductos(), _FakeImpuestos()))
-    win._codigo.setText("B")
-    win._al_agregar()
-    assert win._tabla.rowCount() == 1
-    assert "3500" in win._total.text()
+    win = PantallaVenta(_ctx())
+    win.al_mostrar()
+    assert len(win._tarjetas) >= 4
+
+
+def test_agregar_producto_actualiza_carrito_y_total():
+    _app = QApplication.instance() or QApplication([])
+    ctx = _ctx()
+    win = PantallaVenta(ctx)
+    win.al_mostrar()
+    producto = ctx.repo_productos.por_codigo("7700006")  # Arroz, por unidad
+    win._agregar_producto(producto)
+    assert win._carrito.rowCount() == 1
+    assert win._total_actual() == Decimal("2500")
+
+
+def test_cobrar_deshabilitado_sin_caja_abierta():
+    _app = QApplication.instance() or QApplication([])
+    ctx = _ctx()
+    win = PantallaVenta(ctx)
+    win.al_mostrar()
+    producto = ctx.repo_productos.por_codigo("7700006")
+    win._agregar_producto(producto)
+    assert win._boton_cobrar.isEnabled() is False  # no hay caja abierta
+
+
+def test_cobrar_registra_venta_con_caja_abierta():
+    _app = QApplication.instance() or QApplication([])
+    ctx = _ctx()
+    ctx.svc_caja.abrir(fecha=datetime.now(), monto_inicial=Decimal("0"))
+    win = PantallaVenta(ctx)
+    win.al_mostrar()
+    producto = ctx.repo_productos.por_codigo("7700006")
+    win._agregar_producto(producto)
+    sesion = ctx.repo_sesiones.abierta()
+    win._registrar_pagos([__import__("core.entidades", fromlist=["Pago"]).Pago(
+        medio_pago_id=1, monto=Decimal("2500"))], sesion.id)
+    assert win._carrito.rowCount() == 0  # carrito limpio tras cobro
+    assert len(ctx.repo_ventas.ventas_de_sesion(sesion.id)) == 1
