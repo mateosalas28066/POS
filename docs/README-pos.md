@@ -38,9 +38,10 @@ y facturación electrónica DIAN mañana.
 | E1 | ServicioVenta, UI de caja (PySide6), persistencia ventas | ✅ implementado |
 | E2 | Inventario (productos, stock, movimientos) | ✅ implementado |
 | E3 | Cierre de caja / arqueo + descuento de inventario | ✅ implementado |
+| E3.b | Anulación de venta (sin dinero): repone stock, marca anulada | ✅ implementado |
 | E4 | Venta por peso (balanza, GS1, manual) | ✅ implementado |
-| E5–E7 | Clientes, devoluciones, reportes | pendiente |
+| E5–E7 | Clientes, devoluciones (con dinero), reportes | pendiente |
 | E6 | Sync offline/outbox | pendiente |
 | DIAN | Facturación electrónica (stub → proveedor) | pendiente |
 
-Suite: **85 passed, 1 skipped** (2026-06-25).
+Suite: **91 passed, 1 skipped** (2026-06-25).
