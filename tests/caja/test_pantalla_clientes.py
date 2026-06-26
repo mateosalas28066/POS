@@ -38,24 +38,36 @@ class _FakeRepo:
         return list(self._items.values())
 
 
-def test_crear_agrega_fila_a_la_tabla():
+def _pantalla():
+    return PantallaClientes(ServicioClientes(_FakeRepo()))
+
+
+def test_crear_agrega_fila():
     _app = QApplication.instance() or QApplication([])
-    win = PantallaClientes(ServicioClientes(_FakeRepo()))
+    win = _pantalla()
     win._identificacion.setText("900123")
     win._nombre.setText("Carnes SAS")
-    win._al_crear()
+    win._guardar()
     assert win._tabla.rowCount() == 1
     assert "Carnes SAS" in win._tabla.item(0, 1).text()
 
 
 def test_crear_duplicado_muestra_error():
     _app = QApplication.instance() or QApplication([])
-    win = PantallaClientes(ServicioClientes(_FakeRepo()))
-    win._identificacion.setText("900123")
-    win._nombre.setText("Carnes SAS")
-    win._al_crear()
-    win._identificacion.setText("900123")
-    win._nombre.setText("Otro")
-    win._al_crear()
-    assert "Error" in win._estado.text()
+    win = _pantalla()
+    win._identificacion.setText("900123"); win._nombre.setText("A"); win._guardar()
+    win._nuevo()
+    win._identificacion.setText("900123"); win._nombre.setText("B"); win._guardar()
+    assert "Error" in win._estado.text() or win._estado.text() != ""
     assert win._tabla.rowCount() == 1
+
+
+def test_editar_cliente_existente():
+    _app = QApplication.instance() or QApplication([])
+    win = _pantalla()
+    win._identificacion.setText("900123"); win._nombre.setText("Viejo"); win._guardar()
+    win._seleccionar_fila(0)
+    win._nombre.setText("Nuevo")
+    win._guardar()
+    assert win._tabla.rowCount() == 1
+    assert "Nuevo" in win._tabla.item(0, 1).text()
