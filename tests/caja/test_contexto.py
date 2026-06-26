@@ -1,0 +1,20 @@
+from caja.contexto import ContextoApp
+from core.servicio_venta import ServicioVenta
+
+
+def test_crear_en_memoria_expone_repos_y_servicios():
+    ctx = ContextoApp.crear(":memory:")
+    assert ctx.repo_productos.listar()  # seed cargó productos
+    assert ctx.repo_medios_pago.listar()  # migración sembró medios
+    assert ctx.svc_reportes is not None
+    assert ctx.svc_caja is not None
+    ctx.conn.close()
+
+
+def test_nueva_venta_devuelve_instancia_fresca():
+    ctx = ContextoApp.crear(":memory:")
+    v1 = ctx.nueva_venta()
+    v2 = ctx.nueva_venta()
+    assert isinstance(v1, ServicioVenta)
+    assert v1 is not v2
+    ctx.conn.close()
