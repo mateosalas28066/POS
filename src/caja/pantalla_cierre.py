@@ -51,11 +51,17 @@ class PantallaCierre(QWidget):
             self._montar_arqueo(sesion)
 
     def _limpiar_layout(self) -> None:
-        while self._layout.count():
-            item = self._layout.takeAt(0)
+        self._vaciar(self._layout)
+
+    @staticmethod
+    def _vaciar(layout) -> None:
+        while layout.count():
+            item = layout.takeAt(0)
             w = item.widget()
             if w is not None:
                 w.setParent(None)
+            elif item.layout() is not None:
+                PantallaCierre._vaciar(item.layout())
 
     def _montar_apertura(self) -> None:
         self._layout.addWidget(QLabel("Caja cerrada"))
@@ -82,9 +88,6 @@ class PantallaCierre(QWidget):
         self._layout.addStretch(1)
         self._kpi_inicial.set_valor(formato_moneda(sesion.monto_inicial))
         self._recalcular_arqueo()
-
-    def _efectivo_ventas(self, sesion: CajaSesion) -> Decimal:
-        return self._ctx.repo_ventas.totales_por_medio(sesion.id).get(1, CERO)
 
     def _recalcular_arqueo(self) -> None:
         sesion = self._ctx.repo_sesiones.abierta()
