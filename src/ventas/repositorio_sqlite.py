@@ -239,6 +239,11 @@ class RepositorioCajaSesionesSQLite:
         ).fetchone()
         return _fila_a_sesion(f) if f else None
 
+    def listar(self) -> list[CajaSesion]:
+        filas = self._conn.execute(
+            "SELECT * FROM caja_sesiones ORDER BY id").fetchall()
+        return [_fila_a_sesion(f) for f in filas]
+
 
 def _fila_a_linea_dev(f: sqlite3.Row) -> LineaDevolucion:
     return LineaDevolucion(

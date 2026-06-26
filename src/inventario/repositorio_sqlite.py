@@ -19,6 +19,14 @@ class RepositorioCategoriasSQLite:
         self._conn.commit()
         return replace(categoria, id=cur.lastrowid)
 
+    def por_id(self, id: int) -> Categoria | None:
+        f = self._conn.execute("SELECT * FROM categorias WHERE id = ?", (id,)).fetchone()
+        return Categoria(nombre=f["nombre"], id=f["id"]) if f else None
+
+    def listar(self) -> list[Categoria]:
+        filas = self._conn.execute("SELECT * FROM categorias ORDER BY id").fetchall()
+        return [Categoria(nombre=f["nombre"], id=f["id"]) for f in filas]
+
 
 class RepositorioImpuestosSQLite:
     def __init__(self, conn: sqlite3.Connection) -> None:
@@ -35,6 +43,11 @@ class RepositorioImpuestosSQLite:
         f = self._conn.execute("SELECT * FROM impuestos WHERE id = ?", (id,)).fetchone()
         return Impuesto(nombre=f["nombre"], tarifa=f["tarifa"],
                         codigo_dian=f["codigo_dian"], id=f["id"]) if f else None
+
+    def listar(self) -> list[Impuesto]:
+        filas = self._conn.execute("SELECT * FROM impuestos ORDER BY id").fetchall()
+        return [Impuesto(nombre=f["nombre"], tarifa=f["tarifa"],
+                         codigo_dian=f["codigo_dian"], id=f["id"]) for f in filas]
 
 
 def _fila_a_producto(f: sqlite3.Row) -> Producto:
@@ -66,6 +79,18 @@ class RepositorioProductosSQLite:
              int(producto.vendido_por_peso), producto.unidad))
         self._conn.commit()
         return replace(producto, id=cur.lastrowid)
+
+    def actualizar(self, producto: Producto) -> Producto:
+        cur = self._conn.execute(
+            "UPDATE productos SET codigo_barras = ?, nombre = ?, precio = ?, costo = ?, "
+            "categoria_id = ?, impuesto_id = ?, vendido_por_peso = ?, unidad = ? WHERE id = ?",
+            (producto.codigo_barras, producto.nombre, producto.precio, producto.costo,
+             producto.categoria_id, producto.impuesto_id,
+             int(producto.vendido_por_peso), producto.unidad, producto.id))
+        if cur.rowcount == 0:
+            raise LookupError(f"producto inexistente: id={producto.id}")
+        self._conn.commit()
+        return producto
 
     def por_id(self, id: int) -> Producto | None:
         f = self._conn.execute("SELECT * FROM productos WHERE id = ?", (id,)).fetchone()
