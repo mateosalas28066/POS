@@ -52,6 +52,19 @@ class RepositorioClientesSQLite:
         filas = self._conn.execute("SELECT * FROM clientes ORDER BY id").fetchall()
         return [_fila_a_cliente(f) for f in filas]
 
+    def actualizar(self, cliente: Cliente) -> Cliente:
+        cur = self._conn.execute(
+            "UPDATE clientes SET identificacion = ?, nombre = ?, contacto = ?, "
+            "bloqueado_edicion = ?, tipo_documento = ?, regimen = ?, "
+            "tipo_responsabilidad = ? WHERE id = ?",
+            (cliente.identificacion, cliente.nombre, cliente.contacto,
+             int(cliente.bloqueado_edicion), cliente.tipo_documento,
+             cliente.regimen, cliente.tipo_responsabilidad, cliente.id))
+        if cur.rowcount == 0:
+            raise LookupError(f"cliente inexistente: id={cliente.id}")
+        self._conn.commit()
+        return cliente
+
 
 class RepositorioMediosPagoSQLite:
     def __init__(self, conn: sqlite3.Connection) -> None:
