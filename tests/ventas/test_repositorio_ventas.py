@@ -51,7 +51,7 @@ def test_cliente_guardar_y_buscar(conn):
     assert repo.por_identificacion("900123").nombre == "ACME"
     assert repo.por_id(c.id).identificacion == "900123"
     assert repo.por_identificacion("nope") is None
-    assert len(repo.listar()) == 1
+    assert c in repo.listar()
 
 
 def test_medios_pago_listar_y_por_id(conn):
