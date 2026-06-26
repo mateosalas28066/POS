@@ -42,7 +42,7 @@ y facturación electrónica DIAN mañana.
 | E4 | Venta por peso (balanza, GS1, manual) | ✅ implementado |
 | E5 | Clientes (maestro + ServicioClientes + pantalla CRUD Qt) | ✅ implementado |
 | E6–E7 | Devoluciones (con dinero), reportes | pendiente |
-| E6 | Sync offline/outbox | pendiente |
+| E8 | Sync offline/outbox | pendiente |
 | DIAN | Facturación electrónica (stub → proveedor) | pendiente |
 
 Suite: **104 passed, 2 skipped** (2026-06-25).
