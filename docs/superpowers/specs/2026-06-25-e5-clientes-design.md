@@ -41,8 +41,9 @@ No inaugura la UI: ya existe UI Qt (`src/caja/pantalla_venta.py` + launcher
 
 - `crear(identificacion, nombre, contacto=None, *, tipo_documento=None, regimen=None, tipo_responsabilidad=None) -> Cliente`
   - Valida `identificacion` y `nombre` no vacíos (`ValueError`).
-  - Traduce el duplicado (`sqlite3.IntegrityError` por el `UNIQUE`) a un error de
-    dominio limpio: `ValueError("ya existe cliente con identificación …")`.
+  - Verifica unicidad con un pre-check `por_identificacion` (el core no conoce
+    sqlite3, así que no atrapa `IntegrityError`): si ya existe, lanza
+    `ClienteDuplicado` (subclase de `ValueError`). El `UNIQUE` de la BD es el backstop.
 - `actualizar(cliente: Cliente) -> Cliente`
   - Exige `cliente.id is not None` (`ValueError` si falta).
   - Persiste vía puerto. **No** comprueba `bloqueado_edicion` (costura E8).
