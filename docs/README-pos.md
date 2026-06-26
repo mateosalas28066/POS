@@ -35,13 +35,14 @@ y facturación electrónica DIAN mañana.
 
 | Epic | Descripción | Estado |
 |---|---|---|
-| E1 | ServicioVenta, UI de caja (PySide6), persistencia ventas | ✅ implementado |
+| E1 | ServicioVenta + persistencia ventas (prototipo de pantalla de venta) | ✅ implementado |
 | E2 | Inventario (productos, stock, movimientos) | ✅ implementado |
 | E3 | Cierre de caja / arqueo + descuento de inventario | ✅ implementado |
 | E3.b | Anulación de venta (sin dinero): repone stock, marca anulada | ✅ implementado |
 | E4 | Venta por peso (balanza, GS1, manual) | ✅ implementado |
-| E5–E7 | Clientes, devoluciones (con dinero), reportes | pendiente |
+| E5 | Clientes (maestro + ServicioClientes + pantalla CRUD Qt) | ✅ implementado |
+| E6–E7 | Devoluciones (con dinero), reportes | pendiente |
 | E6 | Sync offline/outbox | pendiente |
 | DIAN | Facturación electrónica (stub → proveedor) | pendiente |
 
-Suite: **91 passed, 1 skipped** (2026-06-25).
+Suite: **104 passed, 2 skipped** (2026-06-25).
