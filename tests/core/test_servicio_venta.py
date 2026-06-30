@@ -119,3 +119,9 @@ def test_agregar_escaneado_producto_inexistente_falla():
     s = ServicioVenta(_FakeProductos(), _FakeImpuestos(EXCLUIDO))
     with pytest.raises(ProductoNoEncontrado):
         s.agregar_escaneado("2012340012344")
+
+
+def test_agregar_escaneado_digito_control_invalido_falla():
+    s = _servicio()
+    with pytest.raises(ValueError):
+        s.agregar_escaneado("2012340012340")  # último dígito correcto sería 4, no 0

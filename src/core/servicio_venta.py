@@ -55,6 +55,9 @@ class ServicioVenta:
             subtotal = (importe if importe is not None
                         else subtotal_por_peso(producto.precio, peso_kg))
         else:
+            if importe is not None:
+                raise ValueError(
+                    f"{producto.nombre} se vende por unidad; importe no aplica")
             cantidad_o_peso = Decimal(cantidad)
             subtotal = subtotal_por_unidad(producto.precio, cantidad_o_peso)
         linea = LineaVenta(
