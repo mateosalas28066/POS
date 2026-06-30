@@ -7,7 +7,11 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from core.calculos import impuesto_incluido, subtotal_por_peso, subtotal_por_unidad
 from core.entidades import (
-    Devolucion, ItemDevolucion, LineaDevolucion, LineaVenta, MovimientoInventario, Pago, Venta,
+    Devolucion, ItemDevolucion, LineaDevolucion, LineaVenta, MovimientoInventario,
+    Pago, Producto, Venta,
+)
+from core.perifericos.gs1 import (
+    FORMATO_PESO_DEFECTO, FormatoGS1, ResultadoGS1, decodificar_gs1, es_peso_variable,
 )
 from core.puertos import (
     RepositorioDevoluciones, RepositorioImpuestos, RepositorioInventario,
@@ -34,7 +38,8 @@ class ServicioVenta:
         self._lineas: list[LineaVenta] = []
 
     def agregar(self, codigo_barras: str, *, cantidad: Decimal | int = 1,
-                peso_kg: Decimal | None = None) -> LineaVenta:
+                peso_kg: Decimal | None = None,
+                importe: Decimal | None = None) -> LineaVenta:
         producto = self._productos.por_codigo(codigo_barras)
         if producto is None:
             raise ProductoNoEncontrado(f"producto inexistente: {codigo_barras!r}")
@@ -47,7 +52,8 @@ class ServicioVenta:
             if peso_kg is None:
                 raise PesoRequerido(f"{producto.nombre} se vende por peso")
             cantidad_o_peso = peso_kg
-            subtotal = subtotal_por_peso(producto.precio, peso_kg)
+            subtotal = (importe if importe is not None
+                        else subtotal_por_peso(producto.precio, peso_kg))
         else:
             cantidad_o_peso = Decimal(cantidad)
             subtotal = subtotal_por_unidad(producto.precio, cantidad_o_peso)
@@ -61,6 +67,22 @@ class ServicioVenta:
         )
         self._lineas.append(linea)
         return linea
+
+    def agregar_escaneado(self, codigo: str,
+                          formato: FormatoGS1 = FORMATO_PESO_DEFECTO) -> LineaVenta:
+        """Agrega según un código escaneado: GS1 de peso variable o EAN/PLU normal."""
+        if not es_peso_variable(codigo, formato):
+            return self.agregar(codigo, cantidad=1)
+        resultado = decodificar_gs1(codigo, formato)
+        producto = self._productos.por_codigo(resultado.codigo_producto)
+        if producto is None:
+            raise ProductoNoEncontrado(
+                f"producto inexistente: {resultado.codigo_producto!r} (código {codigo!r})")
+        if not producto.vendido_por_peso:
+            raise ValueError(
+                f"{producto.nombre} no se vende por peso pero el código es de peso variable")
+        peso, importe = peso_e_importe_gs1(resultado, producto, formato.valor_es_precio)
+        return self.agregar(resultado.codigo_producto, peso_kg=peso, importe=importe)
 
     @property
     def lineas(self) -> tuple[LineaVenta, ...]:
@@ -88,6 +110,22 @@ class ServicioVenta:
             cliente_id=cliente_id,
             estado="pagada",
         )
+
+
+_GRAMO = Decimal("0.001")  # granularidad de peso al derivarlo desde un precio embebido
+
+
+def peso_e_importe_gs1(resultado: ResultadoGS1, producto: Producto,
+                       valor_es_precio: bool) -> tuple[Decimal, Decimal | None]:
+    """Traduce un ResultadoGS1 a (peso_kg, importe). importe=None salvo en modo precio."""
+    if not valor_es_precio:
+        return resultado.peso_kg, None
+    if producto.precio <= CERO:
+        raise ValueError(
+            f"{producto.nombre} con precio 0: no se puede derivar peso de un código de precio")
+    importe = Decimal(resultado.valor_crudo)
+    peso = (importe / producto.precio).quantize(_GRAMO, rounding=ROUND_HALF_UP)
+    return peso, importe
 
 
 def salidas_de_venta(venta: Venta) -> list[MovimientoInventario]:

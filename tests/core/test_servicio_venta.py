@@ -5,6 +5,7 @@ from decimal import Decimal
 import pytest
 
 from core.entidades import Impuesto, Producto
+from core.perifericos.gs1 import FormatoGS1
 from core.servicio_venta import ProductoNoEncontrado, PesoRequerido, ServicioVenta
 
 
@@ -30,10 +31,14 @@ GASEOSA = Producto(codigo_barras="B", nombre="Gaseosa", precio=Decimal("3500"),
                    impuesto_id=10, id=1)
 MANZANA = Producto(codigo_barras="A", nombre="Manzana", precio=Decimal("4000"),
                    vendido_por_peso=True, unidad="kg", impuesto_id=20, id=2)
+# PLU de balanza: codigo_barras de 5 dígitos que coincide con el embebido en la etiqueta GS1
+PESAJE = Producto(codigo_barras="01234", nombre="Carne", precio=Decimal("4000"),
+                  vendido_por_peso=True, unidad="kg", impuesto_id=20, id=3)
 
 
 def _servicio() -> ServicioVenta:
-    return ServicioVenta(_FakeProductos(GASEOSA, MANZANA), _FakeImpuestos(IVA, EXCLUIDO))
+    return ServicioVenta(_FakeProductos(GASEOSA, MANZANA, PESAJE),
+                         _FakeImpuestos(IVA, EXCLUIDO))
 
 
 def test_agregar_por_unidad_calcula_subtotal_e_iva_contenido():
@@ -78,3 +83,39 @@ def test_confirmar_arma_venta_con_totales():
     assert len(venta.lineas) == 2
     assert venta.total == Decimal("13000")
     assert venta.total_impuestos == Decimal("1118")
+
+
+def test_agregar_por_peso_con_importe_usa_importe_como_subtotal():
+    s = _servicio()
+    linea = s.agregar("01234", peso_kg=Decimal("1.234"), importe=Decimal("1234"))
+    assert linea.subtotal == Decimal("1234")          # usa el importe, no precio×peso
+    assert linea.cantidad_o_peso == Decimal("1.234")  # el peso sigue rigiendo el inventario
+
+
+def test_agregar_escaneado_peso_variable_agrega_por_peso():
+    s = _servicio()
+    linea = s.agregar_escaneado("2012340012344")  # codigo 01234, 1.234 kg
+    assert linea.cantidad_o_peso == Decimal("1.234")
+    assert linea.subtotal == Decimal("4936")  # 4000 * 1.234
+
+
+def test_agregar_escaneado_codigo_normal_agrega_unidad():
+    s = _servicio()
+    linea = s.agregar_escaneado("B")  # Gaseosa: no es peso variable
+    assert linea.cantidad_o_peso == Decimal("1")
+    assert linea.subtotal == Decimal("3500")
+
+
+def test_agregar_escaneado_precio_embebido_usa_importe():
+    carne = Producto(codigo_barras="01234", nombre="Carne", precio=Decimal("2000"),
+                     vendido_por_peso=True, unidad="kg", impuesto_id=20, id=3)
+    s = ServicioVenta(_FakeProductos(carne), _FakeImpuestos(EXCLUIDO))
+    linea = s.agregar_escaneado("2012340012344", FormatoGS1(valor_es_precio=True))
+    assert linea.subtotal == Decimal("1234")           # importe embebido (valor crudo)
+    assert linea.cantidad_o_peso == Decimal("0.617")   # 1234 / 2000
+
+
+def test_agregar_escaneado_producto_inexistente_falla():
+    s = ServicioVenta(_FakeProductos(), _FakeImpuestos(EXCLUIDO))
+    with pytest.raises(ProductoNoEncontrado):
+        s.agregar_escaneado("2012340012344")
