@@ -11,8 +11,9 @@ class FormatoGS1:
     ini_codigo: int = 1
     fin_codigo: int = 6   # codigo = ean[ini_codigo:fin_codigo] (5 dígitos)
     ini_valor: int = 7
-    fin_valor: int = 12   # peso en gramos = ean[ini_valor:fin_valor] (5 dígitos)
-    decimales_valor: int = 3  # gramos -> kg
+    fin_valor: int = 12   # valor embebido = ean[ini_valor:fin_valor] (5 dígitos)
+    decimales_valor: int = 3  # gramos -> kg (solo aplica en modo peso)
+    valor_es_precio: bool = False  # True: el valor embebido es el precio total, no el peso
 
 
 FORMATO_PESO_DEFECTO = FormatoGS1()
@@ -21,12 +22,18 @@ FORMATO_PESO_DEFECTO = FormatoGS1()
 @dataclass(frozen=True)
 class ResultadoGS1:
     codigo_producto: str
-    peso_kg: Decimal
+    peso_kg: Decimal     # interpretación como peso (valor / 10**decimales_valor)
+    valor_crudo: int     # los dígitos de valor como entero, sin escalar (sirve para modo precio)
 
 
 def _digito_control_ean13(doce: str) -> int:
     suma = sum(int(d) * (1 if i % 2 == 0 else 3) for i, d in enumerate(doce))
     return (10 - suma % 10) % 10
+
+
+def es_peso_variable(codigo: str, formato: FormatoGS1 = FORMATO_PESO_DEFECTO) -> bool:
+    """¿El código escaneado es un EAN-13 de peso variable (etiqueta de balanza)?"""
+    return len(codigo) == 13 and codigo.isdigit() and codigo[0] in formato.prefijos
 
 
 def decodificar_gs1(codigo: str, formato: FormatoGS1 = FORMATO_PESO_DEFECTO) -> ResultadoGS1:
@@ -38,7 +45,7 @@ def decodificar_gs1(codigo: str, formato: FormatoGS1 = FORMATO_PESO_DEFECTO) -> 
         raise ValueError("dígito de control EAN-13 incorrecto")
     crudo = codigo[formato.ini_valor:formato.fin_valor]
     peso_kg = Decimal(crudo) / (Decimal(10) ** formato.decimales_valor)
-    return ResultadoGS1(codigo[formato.ini_codigo:formato.fin_codigo], peso_kg)
+    return ResultadoGS1(codigo[formato.ini_codigo:formato.fin_codigo], peso_kg, int(crudo))
 
 
 class CodigoPesoGS1:

@@ -3,7 +3,9 @@ from decimal import Decimal
 
 import pytest
 
-from core.perifericos.gs1 import CodigoPesoGS1, decodificar_gs1
+from core.perifericos.gs1 import (
+    FORMATO_PESO_DEFECTO, CodigoPesoGS1, FormatoGS1, decodificar_gs1, es_peso_variable,
+)
 
 
 def test_decodifica_codigo_y_peso():
@@ -31,3 +33,19 @@ def test_adaptador_cumple_lector_peso():
     lector = CodigoPesoGS1("2012340012344")
     assert lector.leer_peso() == Decimal("1.234")
     assert lector.codigo_producto == "01234"
+
+
+def test_decodifica_expone_valor_crudo():
+    r = decodificar_gs1("2012340012344")
+    assert r.valor_crudo == 1234  # dígitos de valor "01234" como entero, sin escalar
+
+
+def test_formato_por_defecto_es_peso():
+    assert FORMATO_PESO_DEFECTO.valor_es_precio is False
+
+
+def test_es_peso_variable_detecta_prefijo_y_longitud():
+    assert es_peso_variable("2012340012344") is True
+    assert es_peso_variable("7700006") is False        # longitud != 13
+    assert es_peso_variable("3012340012344") is False  # prefijo no es "2"
+    assert es_peso_variable("20123A0012344") is False   # no son solo dígitos
