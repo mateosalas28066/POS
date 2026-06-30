@@ -18,3 +18,9 @@ def test_nueva_venta_devuelve_instancia_fresca():
     assert isinstance(v1, ServicioVenta)
     assert v1 is not v2
     ctx.conn.close()
+
+
+def test_contexto_expone_formato_gs1_peso_por_defecto():
+    ctx = ContextoApp.crear(":memory:")
+    assert ctx.formato_gs1.valor_es_precio is False
+    ctx.conn.close()

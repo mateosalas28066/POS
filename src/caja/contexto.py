@@ -5,6 +5,7 @@ import sqlite3
 from dataclasses import dataclass
 
 from caja.bootstrap import preparar_db
+from core.perifericos.gs1 import FORMATO_PESO_DEFECTO, FormatoGS1
 from core.servicio_caja import ServicioCaja
 from core.servicio_clientes import ServicioClientes
 from core.servicio_reportes import ServicioReportes
@@ -41,6 +42,7 @@ class ContextoApp:
     svc_caja: ServicioCaja
     svc_devolucion: ServicioDevolucion
     svc_reportes: ServicioReportes
+    formato_gs1: FormatoGS1 = FORMATO_PESO_DEFECTO
 
     @classmethod
     def desde_conn(cls, conn: sqlite3.Connection) -> "ContextoApp":
