@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from PySide6.QtCore import Slot
 from PySide6.QtWidgets import (
     QButtonGroup, QHBoxLayout, QMainWindow, QStackedWidget, QVBoxLayout, QWidget,
 )
@@ -83,6 +84,7 @@ class VentanaPrincipal(QMainWindow):
             pantalla.al_mostrar()
         self._refrescar_estado()
 
+    @Slot()
     def _refrescar_estado(self) -> None:
         sesion = self._ctx.repo_sesiones.abierta()
         if sesion is None:

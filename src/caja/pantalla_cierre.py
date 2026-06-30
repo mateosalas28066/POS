@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Signal, Slot
 from PySide6.QtWidgets import (
     QDoubleSpinBox, QGridLayout, QHBoxLayout, QLabel, QMessageBox,
     QPushButton, QVBoxLayout, QWidget,
@@ -89,6 +89,7 @@ class PantallaCierre(QWidget):
         self._kpi_inicial.set_valor(formato_moneda(sesion.monto_inicial))
         self._recalcular_arqueo()
 
+    @Slot()
     def _recalcular_arqueo(self) -> None:
         sesion = self._ctx.repo_sesiones.abierta()
         if sesion is None:
@@ -100,6 +101,7 @@ class PantallaCierre(QWidget):
         self._kpi_diferencia.set_valor(formato_moneda(arqueo.diferencia))
         self._kpi_diferencia.set_estado("positivo" if arqueo.diferencia >= CERO else "alerta")
 
+    @Slot()
     def _abrir(self) -> None:
         try:
             self._ctx.svc_caja.abrir(
@@ -111,6 +113,7 @@ class PantallaCierre(QWidget):
         self.al_mostrar()
         self.caja_cambiada.emit()
 
+    @Slot()
     def _cerrar(self) -> None:
         sesion = self._ctx.repo_sesiones.abierta()
         if sesion is None:

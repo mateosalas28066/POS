@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import (
     QGridLayout, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QMessageBox,
     QPushButton, QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
@@ -128,6 +128,7 @@ class PantallaVenta(QWidget):
             chip.setChecked(False)
         self._aplicar_filtro()
 
+    @Slot()
     def _aplicar_filtro(self) -> None:
         texto = self._busqueda.text().strip().lower()
         for t in self._tarjetas:
@@ -138,6 +139,7 @@ class PantallaVenta(QWidget):
             t.setVisible(visible)
 
     # ---- carrito ----
+    @Slot(object)
     def _agregar_producto(self, producto: Producto) -> None:
         peso = None
         if producto.vendido_por_peso:
@@ -154,6 +156,7 @@ class PantallaVenta(QWidget):
         self._estado.setText("")
         self._refrescar_carrito()
 
+    @Slot()
     def _procesar_escaneo(self) -> None:
         codigo = self._escaneo.text().strip()
         self._escaneo.clear()
@@ -185,6 +188,7 @@ class PantallaVenta(QWidget):
     def _total_actual(self) -> Decimal:
         return self._venta.total
 
+    @Slot()
     def _quitar_seleccionado(self) -> None:
         fila = self._carrito.currentRow()
         if fila < 0:
@@ -207,6 +211,7 @@ class PantallaVenta(QWidget):
         self._boton_cobrar.setEnabled(hay_caja and bool(self._venta.lineas))
 
     # ---- cobro ----
+    @Slot()
     def _cobrar(self) -> None:
         sesion = self._ctx.repo_sesiones.abierta()
         if sesion is None or not self._venta.lineas:

@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Signal, Slot
 from PySide6.QtWidgets import (
     QDoubleSpinBox, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton,
     QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
@@ -77,6 +77,7 @@ class PantallaDevoluciones(QWidget):
         self._lbl_total.setText(formato_moneda(CERO))
         self._boton_procesar.setEnabled(False)
 
+    @Slot()
     def _buscar(self) -> None:
         self._limpiar()
         texto = self._id_venta.text().strip()
@@ -137,6 +138,7 @@ class PantallaDevoluciones(QWidget):
         self._lbl_total.setText(formato_moneda(total))
         self._boton_procesar.setEnabled(total > CERO)
 
+    @Slot()
     def _abrir_reembolso(self) -> None:
         if self._venta is None:
             return

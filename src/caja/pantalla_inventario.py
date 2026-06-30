@@ -1,6 +1,7 @@
 """Pantalla de inventario: tabla de productos con stock + CRUD y movimientos."""
 from __future__ import annotations
 
+from PySide6.QtCore import Slot
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QHBoxLayout, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
@@ -68,6 +69,7 @@ class PantallaInventario(QWidget):
                 self._tabla.setItem(fila, col, item)
         self._filtrar()
 
+    @Slot()
     def _filtrar(self) -> None:
         texto = self._busqueda.text().strip().lower()
         for fila, p in enumerate(self._productos):
@@ -81,6 +83,7 @@ class PantallaInventario(QWidget):
             return self._productos[fila]
         return None
 
+    @Slot()
     def _crear_producto(self) -> None:
         dlg = DialogoProducto(self._ctx.repo_categorias.listar(),
                               self._ctx.repo_impuestos.listar(), parent=self)
@@ -88,6 +91,7 @@ class PantallaInventario(QWidget):
             self._guardar_producto(dlg.producto())
             self.al_mostrar()
 
+    @Slot()
     def _editar_producto(self) -> None:
         p = self._producto_seleccionado()
         if p is None:
@@ -104,6 +108,7 @@ class PantallaInventario(QWidget):
         else:
             self._ctx.repo_productos.actualizar(producto)
 
+    @Slot()
     def _registrar_movimiento(self) -> None:
         p = self._producto_seleccionado()
         if p is None:

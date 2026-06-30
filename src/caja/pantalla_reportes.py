@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, time
 
-from PySide6.QtCore import QDate
+from PySide6.QtCore import QDate, Slot
 from PySide6.QtWidgets import (
     QDateEdit, QGridLayout, QHBoxLayout, QLabel, QPushButton, QTabWidget,
     QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
@@ -67,6 +67,7 @@ class PantallaReportes(QWidget):
         h = self._hasta.date().toPython()
         return (datetime.combine(d, time.min), datetime.combine(h, time.max))
 
+    @Slot()
     def _consultar(self) -> None:
         desde, hasta = self._rango()
         rv = self._ctx.svc_reportes.ventas(desde, hasta)

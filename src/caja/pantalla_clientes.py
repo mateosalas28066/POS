@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+from PySide6.QtCore import Slot
 from PySide6.QtWidgets import (
     QHBoxLayout, QLabel, QLineEdit, QPushButton, QTableWidget,
     QTableWidgetItem, QVBoxLayout, QWidget,
@@ -78,6 +79,7 @@ class PantallaClientes(QWidget):
         self._boton_guardar.setText("Guardar cambios")
         self._estado.setText("Cliente bloqueado" if bloqueado else "")
 
+    @Slot()
     def _nuevo(self) -> None:
         self._editando = None
         for campo in (self._identificacion, self._nombre, self._contacto):
@@ -86,6 +88,7 @@ class PantallaClientes(QWidget):
         self._boton_guardar.setText("Crear")
         self._estado.setText("")
 
+    @Slot()
     def _guardar(self) -> None:
         identificacion = self._identificacion.text().strip()
         nombre = self._nombre.text().strip()
