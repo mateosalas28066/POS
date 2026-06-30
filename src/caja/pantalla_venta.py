@@ -64,9 +64,15 @@ class PantallaVenta(QWidget):
         self._estado = QLabel("")
         self._estado.setObjectName("error")
 
+        self._escaneo = QLineEdit()
+        self._escaneo.setObjectName("escaneo")
+        self._escaneo.setPlaceholderText("Escanear…")
+        self._escaneo.returnPressed.connect(self._procesar_escaneo)
+
         der = QVBoxLayout(panel)
         der.addWidget(QLabel("Carrito"))
         der.addWidget(self._carrito)
+        der.addWidget(self._escaneo)
         der.addWidget(self._estado)
         der.addWidget(QLabel("Total"))
         der.addWidget(self._lbl_total)
@@ -82,6 +88,7 @@ class PantallaVenta(QWidget):
         self._construir_chips()
         self._construir_grid()
         self._refrescar_carrito()
+        self._escaneo.setFocus()
 
     # ---- catálogo ----
     def _construir_chips(self) -> None:
@@ -147,6 +154,21 @@ class PantallaVenta(QWidget):
         self._estado.setText("")
         self._refrescar_carrito()
 
+    def _procesar_escaneo(self) -> None:
+        codigo = self._escaneo.text().strip()
+        self._escaneo.clear()
+        if not codigo:
+            return
+        try:
+            self._venta.agregar_escaneado(codigo, self._ctx.formato_gs1)
+        except (ProductoNoEncontrado, PesoRequerido, ValueError) as exc:
+            self._estado.setText(f"{exc} — código: {codigo}")
+            self._escaneo.setFocus()
+            return
+        self._estado.setText("")
+        self._refrescar_carrito()
+        self._escaneo.setFocus()
+
     def _refrescar_carrito(self) -> None:
         lineas = self._venta.lineas
         self._carrito.setRowCount(0)
@@ -204,4 +226,5 @@ class PantallaVenta(QWidget):
             return
         self._venta = self._ctx.nueva_venta()
         self._refrescar_carrito()
+        self._escaneo.setFocus()
         self.caja_cambiada.emit()

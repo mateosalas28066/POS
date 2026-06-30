@@ -59,3 +59,15 @@ def test_cobrar_registra_venta_con_caja_abierta():
         medio_pago_id=1, monto=Decimal("2500"))], sesion.id)
     assert win._carrito.rowCount() == 0  # carrito limpio tras cobro
     assert len(ctx.repo_ventas.ventas_de_sesion(sesion.id)) == 1
+
+
+def test_escanear_codigo_normal_agrega_al_carrito():
+    _app = QApplication.instance() or QApplication([])
+    ctx = _ctx()
+    win = PantallaVenta(ctx)
+    win.al_mostrar()
+    win._escaneo.setText("7700006")  # Arroz, por unidad
+    win._procesar_escaneo()
+    assert win._carrito.rowCount() == 1
+    assert win._total_actual() == Decimal("2500")
+    assert win._escaneo.text() == ""  # el campo se limpia tras escanear
