@@ -138,6 +138,14 @@ class ServicioReportes:
         devs = self._devoluciones.devoluciones_en(desde, hasta)
         return self._por_cajero(vs, pagos, devs)
 
+    def por_cajero_de_sesion(self, sesion_id: int) -> tuple[ReporteCajero, ...]:
+        if self._sesiones.por_id(sesion_id) is None:
+            raise SesionNoEncontrada(f"sesion de caja inexistente: {sesion_id}")
+        vs = self._ventas.ventas_de_sesion(sesion_id)
+        pagos = [(v.usuario_id, p) for v in vs for p in self._ventas.pagos_de(v.id)]
+        devs = self._devoluciones.de_sesion(sesion_id)
+        return self._por_cajero(vs, pagos, devs)
+
     def _por_cajero(self, vs, pagos, devs) -> tuple[ReporteCajero, ...]:
         agg: dict[int | None, dict] = {}
 

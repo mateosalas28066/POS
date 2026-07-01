@@ -93,3 +93,24 @@ def test_por_cajero_ignora_pago_de_venta_fuera_del_conjunto():
                            None, _FakeSesiones(None))
     por = {c.usuario_id: c for c in svc.por_cajero(DESDE, HASTA)}
     assert por[10].por_medio == {1: Decimal("7000")}
+
+
+def test_por_cajero_de_sesion_usa_pagos_de_por_venta():
+    sesion = CajaSesion(apertura_fecha=datetime(2026, 6, 25, 9, 0),
+                        monto_inicial=Decimal("0"), estado="abierta", id=7)
+    ventas = [_venta(1, 10, Decimal("7000")), _venta(2, 20, Decimal("5000"))]
+    ppv = {1: [Pago(medio_pago_id=1, monto=Decimal("7000"), venta_id=1)],
+           2: [Pago(medio_pago_id=2, monto=Decimal("5000"), venta_id=2)]}
+    svc = ServicioReportes(_FakeVentas(ventas, [], pagos_por_venta=ppv),
+                           _FakeDevoluciones([]), None, _FakeSesiones(sesion))
+    por = {c.usuario_id: c for c in svc.por_cajero_de_sesion(7)}
+    assert por[10].num_ventas == 1
+    assert por[10].por_medio == {1: Decimal("7000")}
+    assert por[20].por_medio == {2: Decimal("5000")}
+
+
+def test_por_cajero_de_sesion_inexistente_falla():
+    svc = ServicioReportes(_FakeVentas([], []), _FakeDevoluciones([]),
+                           None, _FakeSesiones(None))
+    with pytest.raises(SesionNoEncontrada):
+        svc.por_cajero_de_sesion(999)
