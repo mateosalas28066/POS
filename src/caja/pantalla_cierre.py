@@ -6,11 +6,12 @@ from decimal import Decimal
 
 from PySide6.QtCore import Signal, Slot
 from PySide6.QtWidgets import (
-    QDoubleSpinBox, QGridLayout, QHBoxLayout, QLabel, QMessageBox,
+    QDialog, QDoubleSpinBox, QGridLayout, QHBoxLayout, QLabel, QMessageBox,
     QPushButton, QVBoxLayout, QWidget,
 )
 
 from caja.contexto import ContextoApp
+from caja.dialogos.dialogo_conteo import DialogoConteoEfectivo
 from caja.formato import formato_moneda
 from caja.widgets import TarjetaKpi
 from core.entidades import CajaSesion
@@ -36,6 +37,8 @@ class PantallaCierre(QWidget):
         self._boton_abrir.clicked.connect(self._abrir)
         self._boton_cerrar = QPushButton("Cerrar caja"); self._boton_cerrar.setObjectName("primario")
         self._boton_cerrar.clicked.connect(self._cerrar)
+        self._boton_conteo = QPushButton("Contar efectivo")
+        self._boton_conteo.clicked.connect(self._abrir_conteo)
         self._kpi_inicial = TarjetaKpi("Monto inicial")
         self._kpi_efectivo = TarjetaKpi("Ventas efectivo")
         self._kpi_esperado = TarjetaKpi("Esperado")
@@ -82,6 +85,7 @@ class PantallaCierre(QWidget):
         fila = QHBoxLayout()
         fila.addWidget(QLabel("Efectivo contado"))
         fila.addWidget(self._monto_contado)
+        fila.addWidget(self._boton_conteo)
         self._layout.addLayout(fila)
         self._layout.addWidget(self._boton_cerrar)
         self._layout.addWidget(self._estado)
@@ -113,6 +117,12 @@ class PantallaCierre(QWidget):
             return
         self.al_mostrar()
         self.caja_cambiada.emit()
+
+    @Slot()
+    def _abrir_conteo(self) -> None:
+        dlg = DialogoConteoEfectivo(self)
+        if dlg.exec() == QDialog.Accepted:
+            self._monto_contado.setValue(float(dlg.total()))
 
     @Slot()
     def _cerrar(self) -> None:
