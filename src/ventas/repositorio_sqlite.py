@@ -90,6 +90,7 @@ def _fila_a_linea(f: sqlite3.Row) -> LineaVenta:
         precio_unit=f["precio_unit"],
         impuesto=f["impuesto"],
         subtotal=f["subtotal"],
+        promocion_id=f["promocion_id"],
         venta_id=f["venta_id"],
         id=f["id"],
     )
@@ -112,9 +113,9 @@ class RepositorioVentasSQLite:
             self._conn.execute(
                 "INSERT INTO venta_lineas "
                 "(venta_id, producto_id, descripcion, cantidad_o_peso, precio_unit, "
-                "impuesto, subtotal) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "impuesto, subtotal, promocion_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (venta_id, linea.producto_id, linea.descripcion, linea.cantidad_o_peso,
-                 linea.precio_unit, linea.impuesto, linea.subtotal))
+                 linea.precio_unit, linea.impuesto, linea.subtotal, linea.promocion_id))
         for pago in pagos:
             self._conn.execute(
                 "INSERT INTO pagos (venta_id, medio_pago_id, monto, referencia) "
