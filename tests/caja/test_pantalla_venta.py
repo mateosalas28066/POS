@@ -10,6 +10,7 @@ from decimal import Decimal  # noqa: E402
 
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
+from caja.bootstrap import ADMIN_POR_DEFECTO  # noqa: E402
 from caja.contexto import ContextoApp  # noqa: E402
 from caja.pantalla_venta import PantallaVenta  # noqa: E402
 
@@ -71,3 +72,19 @@ def test_escanear_codigo_normal_agrega_al_carrito():
     assert win._carrito.rowCount() == 1
     assert win._total_actual() == Decimal("2500")
     assert win._escaneo.text() == ""  # el campo se limpia tras escanear
+
+
+def test_cobro_registra_usuario_actual():
+    _app = QApplication.instance() or QApplication([])
+    ctx = _ctx()
+    nombre, password = ADMIN_POR_DEFECTO
+    ctx.usuario_actual = ctx.svc_usuarios.autenticar(nombre, password)
+    ctx.svc_caja.abrir(fecha=datetime.now(), monto_inicial=Decimal("0"))
+    win = PantallaVenta(ctx)
+    win.al_mostrar()
+    win._agregar_producto(ctx.repo_productos.por_codigo("7700006"))
+    sesion = ctx.repo_sesiones.abierta()
+    from core.entidades import Pago
+    win._registrar_pagos([Pago(medio_pago_id=1, monto=Decimal("2500"))], sesion.id)
+    venta = ctx.repo_ventas.ventas_de_sesion(sesion.id)[0]
+    assert venta.usuario_id == ctx.usuario_actual.id

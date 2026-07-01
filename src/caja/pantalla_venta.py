@@ -223,7 +223,9 @@ class PantallaVenta(QWidget):
         self._registrar_pagos(dlg.pagos(), sesion.id)
 
     def _registrar_pagos(self, pagos: list[Pago], sesion_id: int) -> None:
-        venta = self._venta.confirmar(fecha=datetime.now(), caja_sesion_id=sesion_id)
+        venta = self._venta.confirmar(
+            fecha=datetime.now(), caja_sesion_id=sesion_id,
+            usuario_id=self._ctx.usuario_actual_id)
         try:
             self._ctx.svc_registro.registrar(venta, pagos)
         except Exception as exc:  # noqa: BLE001 — error inesperado al cajero

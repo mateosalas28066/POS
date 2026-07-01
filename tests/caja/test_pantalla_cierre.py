@@ -9,6 +9,7 @@ from decimal import Decimal  # noqa: E402
 
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
+from caja.bootstrap import ADMIN_POR_DEFECTO  # noqa: E402
 from caja.contexto import ContextoApp  # noqa: E402
 from caja.pantalla_cierre import PantallaCierre  # noqa: E402
 
@@ -36,3 +37,15 @@ def test_cerrar_caja_cierra_sesion(monkeypatch):
     monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
     win._cerrar()
     assert ctx.repo_sesiones.abierta() is None
+
+
+def test_abrir_caja_registra_usuario_actual():
+    _app = QApplication.instance() or QApplication([])
+    ctx = ContextoApp.crear(":memory:")
+    nombre, password = ADMIN_POR_DEFECTO
+    ctx.usuario_actual = ctx.svc_usuarios.autenticar(nombre, password)
+    win = PantallaCierre(ctx)
+    win.al_mostrar()
+    win._monto_inicial.setValue(0)
+    win._abrir()
+    assert ctx.repo_sesiones.abierta().usuario_id == ctx.usuario_actual.id

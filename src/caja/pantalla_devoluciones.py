@@ -154,7 +154,8 @@ class PantallaDevoluciones(QWidget):
             self._ctx.svc_devolucion.devolver(
                 self._venta.id, self._items_a_devolver(), pagos,
                 fecha=datetime.now(),
-                caja_sesion_id=sesion.id if sesion else None)
+                caja_sesion_id=sesion.id if sesion else None,
+                usuario_id=self._ctx.usuario_actual_id)
         except (VentaNoEncontrada, VentaNoDevolvible, CantidadDevueltaExcede,
                 ReembolsoDescuadrado) as exc:
             self._estado.setText(f"Error: {exc}")

@@ -106,7 +106,8 @@ class PantallaCierre(QWidget):
         try:
             self._ctx.svc_caja.abrir(
                 fecha=datetime.now(),
-                monto_inicial=Decimal(str(int(self._monto_inicial.value()))))
+                monto_inicial=Decimal(str(int(self._monto_inicial.value()))),
+                usuario_id=self._ctx.usuario_actual_id)
         except (CajaYaAbierta, ValueError) as exc:
             self._estado.setText(f"Error: {exc}")
             return
