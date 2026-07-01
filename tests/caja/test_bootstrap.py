@@ -25,3 +25,29 @@ def test_productos_tienen_stock_inicial():
         "SELECT COUNT(*) AS n FROM inventario_movimientos WHERE tipo = 'entrada'").fetchone()
     assert fila["n"] >= 4
     conn.close()
+
+
+from caja.bootstrap import ADMIN_POR_DEFECTO, sembrar_admin
+from core.servicio_usuarios import ServicioUsuarios
+from ventas.repositorio_sqlite import RepositorioUsuariosSQLite
+from inventario.db import aplicar_migraciones, conectar
+
+
+def test_sembrar_admin_crea_admin_si_no_hay_usuarios():
+    conn = conectar()
+    aplicar_migraciones(conn)
+    sembrar_admin(conn)
+    nombre, password = ADMIN_POR_DEFECTO
+    servicio = ServicioUsuarios(RepositorioUsuariosSQLite(conn))
+    autenticado = servicio.autenticar(nombre, password)
+    assert autenticado is not None
+    assert autenticado.rol == "admin"
+
+
+def test_sembrar_admin_es_idempotente():
+    conn = conectar()
+    aplicar_migraciones(conn)
+    sembrar_admin(conn)
+    sembrar_admin(conn)
+    total = conn.execute("SELECT COUNT(*) FROM usuarios").fetchone()[0]
+    assert total == 1

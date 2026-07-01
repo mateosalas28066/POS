@@ -8,7 +8,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from core.entidades import (
-    CajaSesion, Cliente, Devolucion, LineaDevolucion, LineaVenta, MedioPago, Pago, Venta,
+    CajaSesion, Cliente, Devolucion, LineaDevolucion, LineaVenta, MedioPago, Pago, Usuario, Venta,
 )
 
 
@@ -333,3 +333,35 @@ class RepositorioDevolucionesSQLite:
         for f in filas:
             acum[f["venta_linea_id"]] = acum.get(f["venta_linea_id"], Decimal("0")) + f["cantidad"]
         return acum
+
+
+def _fila_a_usuario(f: sqlite3.Row) -> Usuario:
+    return Usuario(nombre=f["nombre"], rol=f["rol"], id=f["id"])
+
+
+class RepositorioUsuariosSQLite:
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def guardar(self, usuario: Usuario, hash_password: str) -> Usuario:
+        cur = self._conn.execute(
+            "INSERT INTO usuarios (nombre, rol, hash_password) VALUES (?, ?, ?)",
+            (usuario.nombre, usuario.rol, hash_password))
+        self._conn.commit()
+        return replace(usuario, id=cur.lastrowid)
+
+    def por_id(self, id: int) -> Usuario | None:
+        f = self._conn.execute("SELECT * FROM usuarios WHERE id = ?", (id,)).fetchone()
+        return _fila_a_usuario(f) if f else None
+
+    def por_nombre(self, nombre: str) -> Usuario | None:
+        f = self._conn.execute("SELECT * FROM usuarios WHERE nombre = ?", (nombre,)).fetchone()
+        return _fila_a_usuario(f) if f else None
+
+    def credencial(self, nombre: str) -> tuple[Usuario, str] | None:
+        f = self._conn.execute("SELECT * FROM usuarios WHERE nombre = ?", (nombre,)).fetchone()
+        return (_fila_a_usuario(f), f["hash_password"]) if f else None
+
+    def listar(self) -> list[Usuario]:
+        filas = self._conn.execute("SELECT * FROM usuarios ORDER BY id").fetchall()
+        return [_fila_a_usuario(f) for f in filas]

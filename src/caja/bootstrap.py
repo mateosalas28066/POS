@@ -4,7 +4,10 @@ from __future__ import annotations
 import sqlite3
 from datetime import datetime
 
+from core.seguridad import hash_password
 from inventario.db import aplicar_migraciones, conectar
+
+ADMIN_POR_DEFECTO = ("admin", "admin1234")
 
 # (codigo_barras, nombre, precio, categoria_nombre, impuesto_nombre, vendido_por_peso, unidad, stock)
 _PRODUCTOS_DEMO = [
@@ -50,8 +53,20 @@ def sembrar_demo(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def sembrar_admin(conn: sqlite3.Connection) -> None:
+    """Crea un admin por defecto si no hay usuarios. Idempotente."""
+    if conn.execute("SELECT 1 FROM usuarios LIMIT 1").fetchone():
+        return
+    nombre, password = ADMIN_POR_DEFECTO
+    conn.execute(
+        "INSERT INTO usuarios (nombre, rol, hash_password) VALUES (?, 'admin', ?)",
+        (nombre, hash_password(password)))
+    conn.commit()
+
+
 def preparar_db(ruta: str = "pos.db") -> sqlite3.Connection:
     conn = conectar(ruta)
     aplicar_migraciones(conn)
     sembrar_demo(conn)
+    sembrar_admin(conn)
     return conn
