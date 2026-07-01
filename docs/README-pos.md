@@ -45,8 +45,8 @@ y facturación electrónica DIAN mañana.
 | E7 | Reportes: ventas por período, cierre/arqueo de sesión, inventario/movimientos (dominio + `PantallaReportes` Qt) | ✅ implementado |
 | UI | Rediseño de caja: tema dark navy, 6 pantallas Qt, `VentanaPrincipal` con rail, `ContextoApp` como composition root (`python -m caja`) | ✅ implementado |
 | Escaneo | Campo de escaneo auto-enfocado en venta: decodifica GS1 de peso/precio variable o EAN/PLU y agrega al carrito | ✅ implementado |
-| Usuarios+Cliente | Usuarios/roles + selección de cliente y descuento en la venta | 🟡 en diseño (spec/plan) |
+| Usuarios+Cliente | Usuarios/roles (login, permisos) + cliente y descuento en la venta ([spec](superpowers/specs/2026-06-30-usuarios-cliente-descuento-design.md) · [plan](superpowers/plans/2026-06-30-usuarios-cliente-descuento.md)) | 🟡 en diseño |
 | E8 | Sync offline/outbox | pendiente |
 | DIAN | Facturación electrónica (stub → proveedor) | pendiente |
 
-Suite: **196 passed** (`python -m pytest -q`, 2026-06-30).
+Suite: **259 passed** (`python -m pytest -q`, 2026-06-30).
