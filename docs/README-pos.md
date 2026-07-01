@@ -41,9 +41,12 @@ y facturación electrónica DIAN mañana.
 | E3.b | Anulación de venta (sin dinero): repone stock, marca anulada | ✅ implementado |
 | E4 | Venta por peso (balanza, GS1, manual) | ✅ implementado |
 | E5 | Clientes (maestro + ServicioClientes + pantalla CRUD Qt) | ✅ implementado |
-| E6 | Devoluciones con reembolso: parcial/total, repone stock, reembolsa y netea el arqueo (sin UI Qt) | ✅ implementado |
-| E7 | Reportes: ventas por período, cierre/arqueo de sesión, inventario/movimientos (solo dominio + SQLite, sin UI) | ✅ implementado |
+| E6 | Devoluciones con reembolso: parcial/total, repone stock, reembolsa y netea el arqueo (dominio + `PantallaDevoluciones` Qt) | ✅ implementado |
+| E7 | Reportes: ventas por período, cierre/arqueo de sesión, inventario/movimientos (dominio + `PantallaReportes` Qt) | ✅ implementado |
+| UI | Rediseño de caja: tema dark navy, 6 pantallas Qt, `VentanaPrincipal` con rail, `ContextoApp` como composition root (`python -m caja`) | ✅ implementado |
+| Escaneo | Campo de escaneo auto-enfocado en venta: decodifica GS1 de peso/precio variable o EAN/PLU y agrega al carrito | ✅ implementado |
+| Usuarios+Cliente | Usuarios/roles + selección de cliente y descuento en la venta | 🟡 en diseño (spec/plan) |
 | E8 | Sync offline/outbox | pendiente |
 | DIAN | Facturación electrónica (stub → proveedor) | pendiente |
 
-Suite: **140 passed, 2 skipped** (2026-06-25).
+Suite: **196 passed** (`python -m pytest -q`, 2026-06-30).
