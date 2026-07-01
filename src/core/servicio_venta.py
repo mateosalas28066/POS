@@ -1,11 +1,13 @@
 """Servicio de venta en caja. Python puro: arma líneas y totales vía puertos."""
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 
-from core.calculos import impuesto_incluido, subtotal_por_peso, subtotal_por_unidad
+from core.calculos import (
+    aplicar_descuento, impuesto_incluido, subtotal_por_peso, subtotal_por_unidad,
+)
 from core.entidades import (
     Devolucion, ItemDevolucion, LineaDevolucion, LineaVenta, MovimientoInventario,
     Pago, Producto, Venta,
@@ -29,13 +31,29 @@ class PesoRequerido(ValueError):
     pass
 
 
+@dataclass
+class _Entrada:
+    producto_id: int
+    descripcion: str
+    cantidad_o_peso: Decimal
+    precio_unit: Decimal
+    subtotal_bruto: Decimal
+    tarifa: Decimal
+
+
 class ServicioVenta:
     """Acumula líneas de una venta en curso y la confirma como `Venta`."""
 
     def __init__(self, productos: RepositorioProductos, impuestos: RepositorioImpuestos) -> None:
         self._productos = productos
         self._impuestos = impuestos
-        self._lineas: list[LineaVenta] = []
+        self._entradas: list[_Entrada] = []
+        self.descuento_pct: Decimal = CERO
+
+    def establecer_descuento(self, pct: Decimal) -> None:
+        if not (CERO <= pct < Decimal("1")):
+            raise ValueError("descuento_pct debe estar en [0, 1)")
+        self.descuento_pct = pct
 
     def agregar(self, codigo_barras: str, *, cantidad: Decimal | int = 1,
                 peso_kg: Decimal | None = None,
@@ -52,24 +70,27 @@ class ServicioVenta:
             if peso_kg is None:
                 raise PesoRequerido(f"{producto.nombre} se vende por peso")
             cantidad_o_peso = peso_kg
-            subtotal = (importe if importe is not None
-                        else subtotal_por_peso(producto.precio, peso_kg))
+            bruto = (importe if importe is not None
+                     else subtotal_por_peso(producto.precio, peso_kg))
         else:
             if importe is not None:
                 raise ValueError(
                     f"{producto.nombre} se vende por unidad; importe no aplica")
             cantidad_o_peso = Decimal(cantidad)
-            subtotal = subtotal_por_unidad(producto.precio, cantidad_o_peso)
-        linea = LineaVenta(
-            producto_id=producto.id,
-            descripcion=producto.nombre,
-            cantidad_o_peso=cantidad_o_peso,
-            precio_unit=producto.precio,
-            impuesto=impuesto_incluido(subtotal, tarifa),
-            subtotal=subtotal,
-        )
-        self._lineas.append(linea)
-        return linea
+            bruto = subtotal_por_unidad(producto.precio, cantidad_o_peso)
+        entrada = _Entrada(
+            producto_id=producto.id, descripcion=producto.nombre,
+            cantidad_o_peso=cantidad_o_peso, precio_unit=producto.precio,
+            subtotal_bruto=bruto, tarifa=tarifa)
+        self._entradas.append(entrada)
+        return self._linea(entrada)
+
+    def _linea(self, e: _Entrada) -> LineaVenta:
+        subtotal = aplicar_descuento(e.subtotal_bruto, self.descuento_pct)
+        return LineaVenta(
+            producto_id=e.producto_id, descripcion=e.descripcion,
+            cantidad_o_peso=e.cantidad_o_peso, precio_unit=e.precio_unit,
+            impuesto=impuesto_incluido(subtotal, e.tarifa), subtotal=subtotal)
 
     def agregar_escaneado(self, codigo: str,
                           formato: FormatoGS1 = FORMATO_PESO_DEFECTO) -> LineaVenta:
@@ -89,19 +110,19 @@ class ServicioVenta:
 
     @property
     def lineas(self) -> tuple[LineaVenta, ...]:
-        return tuple(self._lineas)
+        return tuple(self._linea(e) for e in self._entradas)
 
     @property
     def total(self) -> Decimal:
-        return sum((l.subtotal for l in self._lineas), CERO)
+        return sum((l.subtotal for l in self.lineas), CERO)
 
     @property
     def total_impuestos(self) -> Decimal:
-        return sum((l.impuesto for l in self._lineas), CERO)
+        return sum((l.impuesto for l in self.lineas), CERO)
 
     def confirmar(self, *, fecha: datetime, usuario_id: int | None = None,
                   caja_sesion_id: int | None = None, cliente_id: int | None = None) -> Venta:
-        if not self._lineas:
+        if not self._entradas:
             raise ValueError("no se puede confirmar una venta vacía")
         return Venta(
             fecha=fecha,
@@ -111,6 +132,7 @@ class ServicioVenta:
             usuario_id=usuario_id,
             caja_sesion_id=caja_sesion_id,
             cliente_id=cliente_id,
+            descuento_pct=self.descuento_pct,
             estado="pagada",
         )
 
