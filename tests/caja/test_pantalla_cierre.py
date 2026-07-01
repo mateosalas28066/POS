@@ -49,3 +49,22 @@ def test_abrir_caja_registra_usuario_actual():
     win._monto_inicial.setValue(0)
     win._abrir()
     assert ctx.repo_sesiones.abierta().usuario_id == ctx.usuario_actual.id
+
+
+def test_monto_contado_se_reinicia_entre_sesiones(monkeypatch):
+    _app = QApplication.instance() or QApplication([])
+    ctx = ContextoApp.crear(":memory:")
+    win = PantallaCierre(ctx)
+    win.al_mostrar()
+    win._monto_inicial.setValue(50000)
+    win._abrir()
+    win.al_mostrar()
+    win._monto_contado.setValue(50000)
+    from PySide6.QtWidgets import QMessageBox  # noqa: E402
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    win._cerrar()
+    assert win._monto_contado.value() == 0
+
+    win._monto_inicial.setValue(30000)
+    win._abrir()
+    assert win._monto_contado.value() == 0
