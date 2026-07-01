@@ -32,6 +32,13 @@ def impuesto_incluido(subtotal: Decimal, tarifa: Decimal) -> Decimal:
     return (subtotal * tarifa / (Decimal("1") + tarifa)).quantize(_PESO, rounding=ROUND_HALF_UP)
 
 
+def aplicar_descuento(subtotal_bruto: Decimal, pct: Decimal) -> Decimal:
+    """Subtotal neto tras descuento porcentual, redondeado a peso entero (ROUND_HALF_UP)."""
+    if subtotal_bruto < CERO or not (CERO <= pct < Decimal("1")):
+        raise ValueError("subtotal no negativo y pct en [0, 1)")
+    return (subtotal_bruto * (Decimal("1") - pct)).quantize(_PESO, rounding=ROUND_HALF_UP)
+
+
 def calcular_vuelto(total: Decimal, recibido: Decimal) -> Decimal:
     """Vuelto a entregar. Lanza si el dinero recibido no cubre el total."""
     if recibido < total:

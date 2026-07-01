@@ -97,7 +97,12 @@ class Cliente:
     tipo_documento: str | None = None        # reservado DIAN
     regimen: str | None = None               # reservado DIAN
     tipo_responsabilidad: str | None = None  # reservado DIAN
+    descuento_pct: Decimal = CERO            # fracción 0..1
     id: int | None = None
+
+    def __post_init__(self) -> None:
+        if not (CERO <= self.descuento_pct < Decimal("1")):
+            raise ValueError("descuento_pct debe estar en [0, 1)")
 
 
 @dataclass(frozen=True)
@@ -141,11 +146,14 @@ class Venta:
     caja_sesion_id: int | None = None
     cliente_id: int | None = None
     estado: str = "pagada"
+    descuento_pct: Decimal = CERO   # descuento aplicado a la venta (cliente o manual)
     id: int | None = None
 
     def __post_init__(self) -> None:
         if self.estado not in ESTADOS_VENTA:
             raise ValueError(f"estado inválido: {self.estado!r}")
+        if not (CERO <= self.descuento_pct < Decimal("1")):
+            raise ValueError("descuento_pct debe estar en [0, 1)")
 
 
 ESTADOS_CAJA = ("abierta", "cerrada")
