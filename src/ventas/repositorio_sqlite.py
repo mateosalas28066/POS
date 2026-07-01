@@ -21,23 +21,24 @@ def _fila_a_cliente(f: sqlite3.Row) -> Cliente:
         tipo_documento=f["tipo_documento"],
         regimen=f["regimen"],
         tipo_responsabilidad=f["tipo_responsabilidad"],
+        descuento_pct=f["descuento_pct"],
         id=f["id"],
     )
 
 
 class RepositorioClientesSQLite:
     _COLS = ("identificacion, nombre, contacto, bloqueado_edicion, "
-             "tipo_documento, regimen, tipo_responsabilidad")
+             "tipo_documento, regimen, tipo_responsabilidad, descuento_pct")
 
     def __init__(self, conn: sqlite3.Connection) -> None:
         self._conn = conn
 
     def guardar(self, cliente: Cliente) -> Cliente:
         cur = self._conn.execute(
-            f"INSERT INTO clientes ({self._COLS}) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            f"INSERT INTO clientes ({self._COLS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (cliente.identificacion, cliente.nombre, cliente.contacto,
              int(cliente.bloqueado_edicion), cliente.tipo_documento,
-             cliente.regimen, cliente.tipo_responsabilidad))
+             cliente.regimen, cliente.tipo_responsabilidad, cliente.descuento_pct))
         self._conn.commit()
         return replace(cliente, id=cur.lastrowid)
 
@@ -58,10 +59,10 @@ class RepositorioClientesSQLite:
         cur = self._conn.execute(
             "UPDATE clientes SET identificacion = ?, nombre = ?, contacto = ?, "
             "bloqueado_edicion = ?, tipo_documento = ?, regimen = ?, "
-            "tipo_responsabilidad = ? WHERE id = ?",
+            "tipo_responsabilidad = ?, descuento_pct = ? WHERE id = ?",
             (cliente.identificacion, cliente.nombre, cliente.contacto,
              int(cliente.bloqueado_edicion), cliente.tipo_documento,
-             cliente.regimen, cliente.tipo_responsabilidad, cliente.id))
+             cliente.regimen, cliente.tipo_responsabilidad, cliente.descuento_pct, cliente.id))
         if cur.rowcount == 0:
             raise LookupError(f"cliente inexistente: id={cliente.id}")
         self._conn.commit()
@@ -101,10 +102,11 @@ class RepositorioVentasSQLite:
     def guardar(self, venta: Venta, pagos: list[Pago]) -> Venta:
         cur = self._conn.execute(
             "INSERT INTO ventas "
-            "(fecha, usuario_id, caja_sesion_id, cliente_id, total, total_impuestos, estado) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "(fecha, usuario_id, caja_sesion_id, cliente_id, total, total_impuestos, "
+            "estado, descuento_pct) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (venta.fecha.isoformat(), venta.usuario_id, venta.caja_sesion_id,
-             venta.cliente_id, venta.total, venta.total_impuestos, venta.estado))
+             venta.cliente_id, venta.total, venta.total_impuestos, venta.estado,
+             venta.descuento_pct))
         venta_id = cur.lastrowid
         for linea in venta.lineas:
             self._conn.execute(
@@ -136,6 +138,7 @@ class RepositorioVentasSQLite:
             caja_sesion_id=fv["caja_sesion_id"],
             cliente_id=fv["cliente_id"],
             estado=fv["estado"],
+            descuento_pct=fv["descuento_pct"],
             id=fv["id"],
         )
 
