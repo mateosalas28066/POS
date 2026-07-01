@@ -15,7 +15,7 @@ from core.entidades import (
 from core.perifericos.gs1 import (
     FORMATO_PESO_DEFECTO, FormatoGS1, ResultadoGS1, decodificar_gs1, es_peso_variable,
 )
-from core.promociones import precio_con_promo, promo_vigente
+from core.promociones import consumir_unidades, precio_con_promo, promo_vigente
 from core.puertos import (
     RepositorioDevoluciones, RepositorioImpuestos, RepositorioInventario,
     RepositorioProductos, RepositorioPromociones, RepositorioVentas,
@@ -197,15 +197,28 @@ def entradas_de_anulacion(venta: Venta) -> list[MovimientoInventario]:
 
 
 class ServicioRegistroVenta:
-    def __init__(self, ventas: RepositorioVentas, inventario: RepositorioInventario) -> None:
+    def __init__(self, ventas: RepositorioVentas, inventario: RepositorioInventario,
+                 promociones: RepositorioPromociones | None = None) -> None:
         self._ventas = ventas
         self._inventario = inventario
+        self._promociones = promociones
 
     def registrar(self, venta: Venta, pagos: list[Pago]) -> Venta:
         guardada = self._ventas.guardar(venta, pagos)
+        self._consumir_promos(guardada)
         for movimiento in salidas_de_venta(guardada):
             self._inventario.registrar(movimiento)
         return guardada
+
+    def _consumir_promos(self, venta: Venta) -> None:
+        if self._promociones is None:
+            return
+        for linea in venta.lineas:
+            if linea.promocion_id is None:
+                continue
+            promo = self._promociones.por_id(linea.promocion_id)
+            if promo is not None and promo.tipo_duracion == "unidades":
+                self._promociones.actualizar(consumir_unidades(promo, linea.cantidad_o_peso))
 
 
 class VentaNoEncontrada(ValueError):

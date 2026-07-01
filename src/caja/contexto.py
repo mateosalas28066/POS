@@ -71,7 +71,7 @@ class ContextoApp:
             repo_productos=productos, repo_categorias=categorias, repo_impuestos=impuestos,
             repo_inventario=inventario, repo_clientes=clientes, repo_medios_pago=medios,
             repo_ventas=ventas, repo_sesiones=sesiones, repo_devoluciones=devoluciones,
-            svc_registro=ServicioRegistroVenta(ventas, inventario),
+            svc_registro=ServicioRegistroVenta(ventas, inventario, promociones),
             svc_anulacion=ServicioAnulacion(ventas, inventario),
             svc_clientes=ServicioClientes(clientes),
             svc_caja=ServicioCaja(sesiones, ventas, EFECTIVO_MEDIO_PAGO_ID),
