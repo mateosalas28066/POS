@@ -4,6 +4,7 @@ from __future__ import annotations
 ACCION_GESTIONAR_USUARIOS = "gestionar_usuarios"
 ACCION_EDITAR_PRODUCTOS = "editar_productos"
 ACCION_DESCUENTO_MANUAL = "aplicar_descuento_manual"
+ACCION_GESTIONAR_PROMOCIONES = "gestionar_promociones"
 
 PERMISOS_ADMIN = frozenset({
     ACCION_GESTIONAR_USUARIOS, ACCION_EDITAR_PRODUCTOS, ACCION_DESCUENTO_MANUAL})

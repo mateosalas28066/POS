@@ -20,3 +20,9 @@ def test_cajero_no_puede_acciones_restringidas(accion):
 @pytest.mark.parametrize("accion", ["vender", "anular", "devolver", "cerrar_caja"])
 def test_cajero_puede_acciones_no_restringidas(accion):
     assert puede("cajero", accion) is True
+
+
+def test_ambos_roles_pueden_gestionar_promociones():
+    from core.permisos import ACCION_GESTIONAR_PROMOCIONES, puede
+    assert puede("admin", ACCION_GESTIONAR_PROMOCIONES) is True
+    assert puede("cajero", ACCION_GESTIONAR_PROMOCIONES) is True
