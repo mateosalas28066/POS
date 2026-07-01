@@ -6,7 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from core.calculos import calcular_arqueo
-from core.entidades import Arqueo, CajaSesion, MovimientoInventario
+from core.entidades import Arqueo, CajaSesion, MovimientoInventario, Venta
 from core.puertos import (
     RepositorioCajaSesiones, RepositorioDevoluciones, RepositorioInventario, RepositorioVentas,
 )
@@ -174,3 +174,7 @@ class ServicioReportes:
             for uid, b in agg.items()]
         return tuple(sorted(reportes,
                             key=lambda r: (r.usuario_id is None, r.usuario_id or 0)))
+
+    def facturas(self, desde: datetime, hasta: datetime) -> tuple[Venta, ...]:
+        vs = self._ventas.ventas_en(desde, hasta)
+        return tuple(sorted(vs, key=lambda v: (v.fecha, v.id or 0)))
