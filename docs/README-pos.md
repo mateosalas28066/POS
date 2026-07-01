@@ -52,7 +52,7 @@ y facturación electrónica DIAN mañana.
 | E8 | Sync offline/outbox | pendiente |
 | DIAN | Facturación electrónica (stub → proveedor) | pendiente |
 
-Suite: **317 passed** (`python -m pytest -q`, 2026-07-01).
+Suite: **318 passed** (`python -m pytest -q`, 2026-07-01).
 
 **Seguridad:** `caja.bootstrap.sembrar_admin` siembra un usuario `admin`/`admin1234` si no
 hay usuarios en la base. Esa contraseña por defecto debe cambiarse antes de desplegar en
