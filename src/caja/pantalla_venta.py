@@ -6,8 +6,8 @@ from decimal import Decimal
 
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import (
-    QGridLayout, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QMessageBox,
-    QPushButton, QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
+    QComboBox, QDoubleSpinBox, QGridLayout, QHBoxLayout, QInputDialog, QLabel, QLineEdit,
+    QMessageBox, QPushButton, QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
 from caja.contexto import EFECTIVO_MEDIO_PAGO_ID, ContextoApp
@@ -15,6 +15,7 @@ from caja.dialogos.dialogo_cobro import DialogoCobro
 from caja.formato import formato_cantidad, formato_moneda
 from caja.widgets import TarjetaProducto
 from core.entidades import Pago, Producto
+from core.permisos import ACCION_DESCUENTO_MANUAL, puede
 from core.servicio_venta import ProductoNoEncontrado, PesoRequerido
 
 CERO = Decimal("0")
@@ -30,6 +31,8 @@ class PantallaVenta(QWidget):
         self._venta = ctx.nueva_venta()
         self._tarjetas: list[TarjetaProducto] = []
         self._categoria_filtro: int | None = None
+        self._cliente = None
+        rol = ctx.usuario_actual.rol if ctx.usuario_actual else "cajero"
 
         # --- catálogo (izquierda) ---
         self._busqueda = QLineEdit()
@@ -69,7 +72,18 @@ class PantallaVenta(QWidget):
         self._escaneo.setPlaceholderText("Escanear…")
         self._escaneo.returnPressed.connect(self._procesar_escaneo)
 
+        self._combo_cliente = QComboBox()
+        self._combo_cliente.currentIndexChanged.connect(self._al_cambiar_cliente)
+        self._descuento_manual = QDoubleSpinBox()
+        self._descuento_manual.setSuffix(" %")
+        self._descuento_manual.setRange(0, 99)
+        self._descuento_manual.setVisible(puede(rol, ACCION_DESCUENTO_MANUAL))
+        self._descuento_manual.valueChanged.connect(self._al_cambiar_descuento_manual)
+
         der = QVBoxLayout(panel)
+        der.addWidget(QLabel("Cliente"))
+        der.addWidget(self._combo_cliente)
+        der.addWidget(self._descuento_manual)
         der.addWidget(QLabel("Carrito"))
         der.addWidget(self._carrito)
         der.addWidget(self._escaneo)
@@ -87,8 +101,37 @@ class PantallaVenta(QWidget):
     def al_mostrar(self) -> None:
         self._construir_chips()
         self._construir_grid()
+        self._cargar_clientes()
         self._refrescar_carrito()
         self._escaneo.setFocus()
+
+    def _cargar_clientes(self) -> None:
+        self._combo_cliente.blockSignals(True)
+        self._combo_cliente.clear()
+        for c in self._ctx.repo_clientes.listar():
+            self._combo_cliente.addItem(c.nombre, c.id)
+        cf = self._ctx.svc_clientes.consumidor_final()
+        idx = self._combo_cliente.findData(cf.id)
+        if idx >= 0:
+            self._combo_cliente.setCurrentIndex(idx)
+        self._combo_cliente.blockSignals(False)
+        self._cliente = cf
+        self._venta.establecer_descuento(cf.descuento_pct)
+
+    @Slot()
+    def _al_cambiar_cliente(self) -> None:
+        cid = self._combo_cliente.currentData()
+        self._cliente = self._ctx.repo_clientes.por_id(cid) if cid is not None else None
+        pct = self._cliente.descuento_pct if self._cliente else CERO
+        self._venta.establecer_descuento(pct)
+        self._descuento_manual.setValue(0)
+        self._refrescar_carrito()
+
+    @Slot()
+    def _al_cambiar_descuento_manual(self) -> None:
+        pct = Decimal(str(self._descuento_manual.value())) / Decimal("100")
+        self._venta.establecer_descuento(pct)
+        self._refrescar_carrito()
 
     # ---- catálogo ----
     def _construir_chips(self) -> None:
@@ -198,6 +241,8 @@ class PantallaVenta(QWidget):
         lineas = list(self._venta.lineas)
         del lineas[fila]
         self._venta = self._ctx.nueva_venta()
+        self._venta.establecer_descuento(
+            self._cliente.descuento_pct if self._cliente else CERO)
         for ln in lineas:
             producto = self._ctx.repo_productos.por_id(ln.producto_id)
             if producto.vendido_por_peso:
@@ -225,6 +270,7 @@ class PantallaVenta(QWidget):
     def _registrar_pagos(self, pagos: list[Pago], sesion_id: int) -> None:
         venta = self._venta.confirmar(
             fecha=datetime.now(), caja_sesion_id=sesion_id,
+            cliente_id=self._cliente.id if self._cliente else None,
             usuario_id=self._ctx.usuario_actual_id)
         try:
             self._ctx.svc_registro.registrar(venta, pagos)
@@ -232,6 +278,8 @@ class PantallaVenta(QWidget):
             QMessageBox.critical(self, "Error al registrar", str(exc))
             return
         self._venta = self._ctx.nueva_venta()
+        self._venta.establecer_descuento(
+            self._cliente.descuento_pct if self._cliente else CERO)
         self._refrescar_carrito()
         self._escaneo.setFocus()
         self.caja_cambiada.emit()

@@ -88,3 +88,44 @@ def test_cobro_registra_usuario_actual():
     win._registrar_pagos([Pago(medio_pago_id=1, monto=Decimal("2500"))], sesion.id)
     venta = ctx.repo_ventas.ventas_de_sesion(sesion.id)[0]
     assert venta.usuario_id == ctx.usuario_actual.id
+
+
+from decimal import Decimal as _D  # noqa: E402
+
+from core.entidades import Cliente, Usuario  # noqa: E402
+
+
+def test_seleccionar_cliente_con_descuento_aplica_al_total():
+    _app = QApplication.instance() or QApplication([])
+    ctx = _ctx()
+    ctx.usuario_actual = Usuario(nombre="admin", rol="admin", id=1)
+    cliente = ctx.repo_clientes.guardar(
+        Cliente(identificacion="900", nombre="Mayorista", descuento_pct=_D("0.1")))
+    win = PantallaVenta(ctx)
+    win.al_mostrar()
+    idx = win._combo_cliente.findData(cliente.id)
+    win._combo_cliente.setCurrentIndex(idx)  # dispara _al_cambiar_cliente
+    win._agregar_producto(ctx.repo_productos.por_codigo("7700006"))  # 2500
+    assert win._total_actual() == _D("2250")
+
+
+def test_descuento_manual_visible_solo_para_admin():
+    _app = QApplication.instance() or QApplication([])
+    ctx_admin = _ctx()
+    ctx_admin.usuario_actual = Usuario(nombre="a", rol="admin", id=1)
+    win_admin = PantallaVenta(ctx_admin)
+    assert win_admin._descuento_manual.isVisibleTo(win_admin) is True
+
+    ctx_cajero = _ctx()
+    ctx_cajero.usuario_actual = Usuario(nombre="c", rol="cajero", id=2)
+    win_cajero = PantallaVenta(ctx_cajero)
+    assert win_cajero._descuento_manual.isVisibleTo(win_cajero) is False
+
+
+def test_default_es_consumidor_final():
+    _app = QApplication.instance() or QApplication([])
+    ctx = _ctx()
+    ctx.usuario_actual = Usuario(nombre="admin", rol="admin", id=1)
+    win = PantallaVenta(ctx)
+    win.al_mostrar()
+    assert win._cliente.identificacion == "222222222222"
