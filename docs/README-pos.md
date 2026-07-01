@@ -46,11 +46,11 @@ y facturación electrónica DIAN mañana.
 | UI | Rediseño de caja: tema dark navy, 6 pantallas Qt, `VentanaPrincipal` con rail, `ContextoApp` como composition root (`python -m caja`) | ✅ implementado |
 | Escaneo | Campo de escaneo auto-enfocado en venta: decodifica GS1 de peso/precio variable o EAN/PLU y agrega al carrito | ✅ implementado |
 | Usuarios+Cliente | Login + roles admin/cajero (`DialogoLogin`, `PantallaUsuarios`, gating del rail y edición por permisos), `usuario_id` trazado en venta/cierre/devolución, selección de cliente y descuento porcentual en la venta ([spec](superpowers/specs/2026-06-30-usuarios-cliente-descuento-design.md) · [plan](superpowers/plans/2026-06-30-usuarios-cliente-descuento.md)) | ✅ implementado |
-| RPTFAC | Reportes por factura (listado + detalle) y por cajero (rango y sesión) sobre `ServicioReportes` + 2 pestañas nuevas en `PantallaReportes` ([spec](superpowers/specs/2026-07-01-reportes-factura-cajero-design.md) · [plan](superpowers/plans/2026-07-01-reportes-factura-cajero.md)) | 📝 spec+plan (sin implementar) |
+| RPTFAC | Reportes por factura (listado + detalle) y por cajero (rango y sesión) sobre `ServicioReportes` (`facturas`, `por_cajero`, `por_cajero_de_sesion`) + pestañas "Por factura" y "Por cajero" en `PantallaReportes` ([spec](superpowers/specs/2026-07-01-reportes-factura-cajero-design.md) · [plan](superpowers/plans/2026-07-01-reportes-factura-cajero.md)) | ✅ implementado |
 | E8 | Sync offline/outbox | pendiente |
 | DIAN | Facturación electrónica (stub → proveedor) | pendiente |
 
-Suite: **259 passed** (`python -m pytest -q`, 2026-06-30).
+Suite: **269 passed** (`python -m pytest -q`, 2026-07-01).
 
 **Seguridad:** `caja.bootstrap.sembrar_admin` siembra un usuario `admin`/`admin1234` si no
 hay usuarios en la base. Esa contraseña por defecto debe cambiarse antes de desplegar en
