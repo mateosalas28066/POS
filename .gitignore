@@ -24,3 +24,6 @@ htmlcov/
 Thumbs.db
 .idea/
 .vscode/
+
+# Worktrees de desarrollo aislado
+.worktrees/
