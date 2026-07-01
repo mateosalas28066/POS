@@ -10,9 +10,10 @@ from PySide6.QtWidgets import (
 from caja.contexto import ContextoApp
 from caja.dialogos.dialogo_movimiento import DialogoMovimiento
 from caja.dialogos.dialogo_producto import DialogoProducto
+from caja.dialogos.dialogo_promociones import DialogoPromociones
 from caja.formato import formato_cantidad, formato_moneda
 from core.entidades import MovimientoInventario, Producto
-from core.permisos import ACCION_EDITAR_PRODUCTOS, puede
+from core.permisos import ACCION_EDITAR_PRODUCTOS, ACCION_GESTIONAR_PROMOCIONES, puede
 
 _COLS = ["Código", "Nombre", "Categoría", "Precio", "Costo", "Stock", "Unidad"]
 _COLOR_ALERTA = QColor("#F59E0B")
@@ -34,17 +35,21 @@ class PantallaInventario(QWidget):
         self._boton_editar.clicked.connect(self._editar_producto)
         self._boton_mov = QPushButton("Movimiento")
         self._boton_mov.clicked.connect(self._registrar_movimiento)
+        self._boton_promos = QPushButton("Promociones")
+        self._boton_promos.clicked.connect(self._abrir_promociones)
 
         rol = ctx.usuario_actual.rol if ctx.usuario_actual else "cajero"
         puede_editar = puede(rol, ACCION_EDITAR_PRODUCTOS)
         self._boton_nuevo.setVisible(puede_editar)
         self._boton_editar.setVisible(puede_editar)
+        self._boton_promos.setVisible(puede(rol, ACCION_GESTIONAR_PROMOCIONES))
 
         barra = QHBoxLayout()
         barra.addWidget(self._busqueda, 1)
         barra.addWidget(self._boton_nuevo)
         barra.addWidget(self._boton_editar)
         barra.addWidget(self._boton_mov)
+        barra.addWidget(self._boton_promos)
 
         self._tabla = QTableWidget(0, len(_COLS))
         self._tabla.setHorizontalHeaderLabels(_COLS)
@@ -126,3 +131,9 @@ class PantallaInventario(QWidget):
 
     def _aplicar_movimiento(self, movimiento: MovimientoInventario) -> None:
         self._ctx.repo_inventario.registrar(movimiento)
+
+    @Slot()
+    def _abrir_promociones(self) -> None:
+        dlg = DialogoPromociones(self._ctx.repo_productos.listar(),
+                                 self._ctx.svc_promociones, parent=self)
+        dlg.exec()
