@@ -32,6 +32,17 @@ class ReporteVentas:
 
 
 @dataclass(frozen=True)
+class ReporteCajero:
+    usuario_id: int | None
+    num_ventas: int
+    total: Decimal
+    total_impuestos: Decimal
+    total_devoluciones: Decimal
+    neto: Decimal
+    por_medio: dict[int, Decimal]
+
+
+@dataclass(frozen=True)
 class MovimientoProducto:
     producto_id: int
     entradas: Decimal
@@ -117,3 +128,41 @@ class ServicioReportes:
         total_devoluciones = sum((d.total for d in self._devoluciones.de_sesion(sesion_id)), CERO)
         return ReporteCierre(sesion=sesion, arqueo=arqueo, por_medio=por_medio,
                              num_ventas=num_ventas, total_devoluciones=total_devoluciones)
+
+    def por_cajero(self, desde: datetime, hasta: datetime) -> tuple[ReporteCajero, ...]:
+        vs = self._ventas.ventas_en(desde, hasta)
+        usuario_de_venta = {v.id: v.usuario_id for v in vs}
+        pagos = [(usuario_de_venta[p.venta_id], p)
+                 for p in self._ventas.pagos_en(desde, hasta)
+                 if p.venta_id in usuario_de_venta]
+        devs = self._devoluciones.devoluciones_en(desde, hasta)
+        return self._por_cajero(vs, pagos, devs)
+
+    def _por_cajero(self, vs, pagos, devs) -> tuple[ReporteCajero, ...]:
+        agg: dict[int | None, dict] = {}
+
+        def bucket(uid: int | None) -> dict:
+            return agg.setdefault(
+                uid, {"num": 0, "total": CERO, "imp": CERO, "dev": CERO, "medio": {}})
+
+        for v in vs:
+            b = bucket(v.usuario_id)
+            b["num"] += 1
+            b["total"] += v.total
+            b["imp"] += v.total_impuestos
+        for uid, p in pagos:
+            m = bucket(uid)["medio"]
+            m[p.medio_pago_id] = m.get(p.medio_pago_id, CERO) + p.monto
+        for d in devs:
+            b = bucket(d.usuario_id)
+            b["dev"] += d.total
+            for r in d.reembolsos:
+                m = b["medio"]
+                m[r.medio_pago_id] = m.get(r.medio_pago_id, CERO) - r.monto
+        reportes = [
+            ReporteCajero(usuario_id=uid, num_ventas=b["num"], total=b["total"],
+                          total_impuestos=b["imp"], total_devoluciones=b["dev"],
+                          neto=b["total"] - b["dev"], por_medio=b["medio"])
+            for uid, b in agg.items()]
+        return tuple(sorted(reportes,
+                            key=lambda r: (r.usuario_id is None, r.usuario_id or 0)))
