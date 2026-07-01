@@ -47,10 +47,12 @@ y facturación electrónica DIAN mañana.
 | Escaneo | Campo de escaneo auto-enfocado en venta: decodifica GS1 de peso/precio variable o EAN/PLU y agrega al carrito | ✅ implementado |
 | Usuarios+Cliente | Login + roles admin/cajero (`DialogoLogin`, `PantallaUsuarios`, gating del rail y edición por permisos), `usuario_id` trazado en venta/cierre/devolución, selección de cliente y descuento porcentual en la venta ([spec](superpowers/specs/2026-06-30-usuarios-cliente-descuento-design.md) · [plan](superpowers/plans/2026-06-30-usuarios-cliente-descuento.md)) | ✅ implementado |
 | RPTFAC | Reportes por factura (listado + detalle) y por cajero (rango y sesión) sobre `ServicioReportes` (`facturas`, `por_cajero`, `por_cajero_de_sesion`) + pestañas "Por factura" y "Por cajero" en `PantallaReportes` ([spec](superpowers/specs/2026-07-01-reportes-factura-cajero-design.md) · [plan](superpowers/plans/2026-07-01-reportes-factura-cajero.md)) | ✅ implementado |
+| PROMO | Promociones por producto (precio fijo o %, duración por tiempo/unidades/manual): dominio `Promocion` + reglas `promo_vigente/precio_con_promo/consumir_unidades`, `ServicioPromociones` (una activa por producto), `RepositorioPromocionesSQLite` (migración 006), `ServicioVenta` aplica la promo antes del descuento del cliente y consume unidades al registrar, `DialogoPromociones` desde inventario y marca visual en la venta ([spec](superpowers/specs/2026-07-01-promociones-conteo-caja-design.md) · [plan](superpowers/plans/2026-07-01-promociones-conteo-caja.md)) | ✅ implementado |
+| CONTEO | Conteo de efectivo por denominaciones (COP) en el cierre: `caja/conteo.py` (`DENOMINACIONES` + `total_conteo`), `DialogoConteoEfectivo` y botón "Contar efectivo" que rellena el monto contado (ayuda opcional, no bloquea el cierre) ([spec](superpowers/specs/2026-07-01-promociones-conteo-caja-design.md) · [plan](superpowers/plans/2026-07-01-promociones-conteo-caja.md)) | ✅ implementado |
 | E8 | Sync offline/outbox | pendiente |
 | DIAN | Facturación electrónica (stub → proveedor) | pendiente |
 
-Suite: **269 passed** (`python -m pytest -q`, 2026-07-01).
+Suite: **317 passed** (`python -m pytest -q`, 2026-07-01).
 
 **Seguridad:** `caja.bootstrap.sembrar_admin` siembra un usuario `admin`/`admin1234` si no
 hay usuarios en la base. Esa contraseña por defecto debe cambiarse antes de desplegar en
