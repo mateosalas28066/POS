@@ -6,7 +6,7 @@ from dataclasses import replace
 from datetime import datetime
 from decimal import Decimal
 
-from core.entidades import Categoria, Impuesto, MovimientoInventario, Producto
+from core.entidades import Categoria, Impuesto, MovimientoInventario, Producto, Promocion
 
 
 class RepositorioCategoriasSQLite:
@@ -145,3 +145,67 @@ class RepositorioInventarioSQLite:
             "WHERE fecha >= ? AND fecha < ? ORDER BY id",
             (desde.isoformat(), hasta.isoformat())).fetchall()
         return [_fila_a_movimiento(f) for f in filas]
+
+
+def _fila_a_promocion(f: sqlite3.Row) -> Promocion:
+    return Promocion(
+        producto_id=f["producto_id"],
+        tipo_valor=f["tipo_valor"],
+        valor=f["valor"],
+        tipo_duracion=f["tipo_duracion"],
+        activa=bool(f["activa"]),
+        desde=datetime.fromisoformat(f["desde"]) if f["desde"] else None,
+        hasta=datetime.fromisoformat(f["hasta"]) if f["hasta"] else None,
+        unidades_limite=f["unidades_limite"],
+        unidades_restantes=f["unidades_restantes"],
+        id=f["id"],
+    )
+
+
+class RepositorioPromocionesSQLite:
+    _COLS = ("producto_id, tipo_valor, valor, tipo_duracion, activa, "
+             "desde, hasta, unidades_limite, unidades_restantes")
+
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def guardar(self, promo: Promocion) -> Promocion:
+        cur = self._conn.execute(
+            f"INSERT INTO promociones ({self._COLS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            self._valores(promo))
+        self._conn.commit()
+        return replace(promo, id=cur.lastrowid)
+
+    def actualizar(self, promo: Promocion) -> None:
+        cur = self._conn.execute(
+            "UPDATE promociones SET producto_id = ?, tipo_valor = ?, valor = ?, "
+            "tipo_duracion = ?, activa = ?, desde = ?, hasta = ?, "
+            "unidades_limite = ?, unidades_restantes = ? WHERE id = ?",
+            (*self._valores(promo), promo.id))
+        if cur.rowcount == 0:
+            raise LookupError(f"promoción inexistente: id={promo.id}")
+        self._conn.commit()
+
+    @staticmethod
+    def _valores(promo: Promocion) -> tuple:
+        return (
+            promo.producto_id, promo.tipo_valor, promo.valor, promo.tipo_duracion,
+            int(promo.activa),
+            promo.desde.isoformat() if promo.desde else None,
+            promo.hasta.isoformat() if promo.hasta else None,
+            promo.unidades_limite, promo.unidades_restantes,
+        )
+
+    def por_id(self, id: int) -> Promocion | None:
+        f = self._conn.execute("SELECT * FROM promociones WHERE id = ?", (id,)).fetchone()
+        return _fila_a_promocion(f) if f else None
+
+    def activa_por_producto(self, producto_id: int) -> Promocion | None:
+        f = self._conn.execute(
+            "SELECT * FROM promociones WHERE producto_id = ? AND activa = 1 "
+            "ORDER BY id DESC LIMIT 1", (producto_id,)).fetchone()
+        return _fila_a_promocion(f) if f else None
+
+    def listar(self) -> list[Promocion]:
+        filas = self._conn.execute("SELECT * FROM promociones ORDER BY id").fetchall()
+        return [_fila_a_promocion(f) for f in filas]
