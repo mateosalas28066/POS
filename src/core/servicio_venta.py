@@ -1,6 +1,7 @@
 """Servicio de venta en caja. Python puro: arma líneas y totales vía puertos."""
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass, replace
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
@@ -213,12 +214,14 @@ class ServicioRegistroVenta:
     def _consumir_promos(self, venta: Venta) -> None:
         if self._promociones is None:
             return
+        pendiente: dict[int, Decimal] = defaultdict(lambda: CERO)
         for linea in venta.lineas:
-            if linea.promocion_id is None:
-                continue
-            promo = self._promociones.por_id(linea.promocion_id)
+            if linea.promocion_id is not None:
+                pendiente[linea.promocion_id] += linea.cantidad_o_peso
+        for promocion_id, cantidad in pendiente.items():
+            promo = self._promociones.por_id(promocion_id)
             if promo is not None and promo.tipo_duracion == "unidades":
-                self._promociones.actualizar(consumir_unidades(promo, linea.cantidad_o_peso))
+                self._promociones.actualizar(consumir_unidades(promo, cantidad))
 
 
 class VentaNoEncontrada(ValueError):

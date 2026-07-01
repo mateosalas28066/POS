@@ -50,3 +50,22 @@ def test_registrar_sin_promo_no_falla():
     guardada = svc.registrar(_venta_con_promo(None),
                              [Pago(medio_pago_id=1, monto=Decimal("30000"))])
     assert guardada.id == 77
+
+
+def test_registrar_consume_unidades_sumadas_entre_lineas_duplicadas():
+    """Dos líneas con la misma promoción (mismo producto escaneado dos veces) deben
+    sumar su consumo antes de escribir, no pisarse entre sí (última gana)."""
+    promo = Promocion(producto_id=1, tipo_valor="precio_fijo", valor=Decimal("15000"),
+                      tipo_duracion="unidades", unidades_limite=Decimal("5"), id=9)
+    promos = _FakePromos(promo)
+    svc = ServicioRegistroVenta(_FakeVentas(), _FakeInventario(), promos)
+    linea1 = LineaVenta(producto_id=1, descripcion="Lomo", cantidad_o_peso=Decimal("2"),
+                        precio_unit=Decimal("15000"), impuesto=Decimal("0"),
+                        subtotal=Decimal("30000"), promocion_id=9)
+    linea2 = LineaVenta(producto_id=1, descripcion="Lomo", cantidad_o_peso=Decimal("2"),
+                        precio_unit=Decimal("15000"), impuesto=Decimal("0"),
+                        subtotal=Decimal("30000"), promocion_id=9)
+    venta = Venta(fecha=datetime(2026, 7, 1, 10, 0), lineas=(linea1, linea2),
+                 total=Decimal("60000"), total_impuestos=Decimal("0"))
+    svc.registrar(venta, [Pago(medio_pago_id=1, monto=Decimal("60000"))])
+    assert promos.por_id(9).unidades_restantes == Decimal("1")
