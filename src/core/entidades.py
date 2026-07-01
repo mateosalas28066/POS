@@ -126,6 +126,7 @@ class LineaVenta:
     precio_unit: Decimal      # precio al público, IVA incluido
     impuesto: Decimal         # IVA contenido en el subtotal
     subtotal: Decimal         # lo que paga el cliente por esta línea
+    promocion_id: int | None = None
     venta_id: int | None = None
     id: int | None = None
 
@@ -234,3 +235,41 @@ class Devolucion:
     def __post_init__(self) -> None:
         if self.estado not in ESTADOS_DEVOLUCION:
             raise ValueError(f"estado de devolución inválido: {self.estado!r}")
+
+
+TIPOS_VALOR_PROMO = ("precio_fijo", "porcentaje")
+TIPOS_DURACION_PROMO = ("tiempo", "unidades", "manual")
+
+
+@dataclass(frozen=True)
+class Promocion:
+    producto_id: int
+    tipo_valor: str            # "precio_fijo" | "porcentaje"
+    valor: Decimal             # pesos (fijo) o fracción [0,1) (porcentaje)
+    tipo_duracion: str         # "tiempo" | "unidades" | "manual"
+    activa: bool = True
+    desde: datetime | None = None
+    hasta: datetime | None = None
+    unidades_limite: Decimal | None = None
+    unidades_restantes: Decimal | None = None
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.tipo_valor not in TIPOS_VALOR_PROMO:
+            raise ValueError(f"tipo_valor inválido: {self.tipo_valor!r}")
+        if self.tipo_duracion not in TIPOS_DURACION_PROMO:
+            raise ValueError(f"tipo_duracion inválido: {self.tipo_duracion!r}")
+        if self.tipo_valor == "porcentaje" and not (CERO <= self.valor < Decimal("1")):
+            raise ValueError("valor de porcentaje debe estar en [0, 1)")
+        if self.tipo_valor == "precio_fijo" and self.valor < CERO:
+            raise ValueError("precio fijo no puede ser negativo")
+        if self.tipo_duracion == "tiempo":
+            if self.desde is None or self.hasta is None:
+                raise ValueError("promo por tiempo requiere desde y hasta")
+            if self.desde > self.hasta:
+                raise ValueError("desde no puede ser posterior a hasta")
+        if self.tipo_duracion == "unidades":
+            if self.unidades_limite is None or self.unidades_limite <= CERO:
+                raise ValueError("promo por unidades requiere unidades_limite > 0")
+            if self.unidades_restantes is None:
+                object.__setattr__(self, "unidades_restantes", self.unidades_limite)
