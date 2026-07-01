@@ -72,6 +72,22 @@ class MedioPago:
     id: int | None = None
 
 
+ROLES = ("admin", "cajero")
+
+
+@dataclass(frozen=True)
+class Usuario:
+    nombre: str
+    rol: str = "cajero"
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        if not self.nombre.strip():
+            raise ValueError("el nombre de usuario es obligatorio")
+        if self.rol not in ROLES:
+            raise ValueError(f"rol inválido: {self.rol!r}")
+
+
 @dataclass(frozen=True)
 class Cliente:
     identificacion: str
