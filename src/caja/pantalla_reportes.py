@@ -68,10 +68,24 @@ class PantallaReportes(QWidget):
         lf.addWidget(self._tabla_factura); lf.addWidget(QLabel("Detalle de la factura"))
         lf.addWidget(self._detalle_factura)
 
+        # Pestaña "Por cajero"
+        self._fuente_cajero = QComboBox()
+        self._fuente_cajero.currentIndexChanged.connect(self._consultar_cajero)
+        self._tabla_cajero = QTableWidget(0, 5)
+        self._tabla_cajero.setHorizontalHeaderLabels(
+            ["Cajero", "# Ventas", "Total", "Devoluciones", "Neto"])
+        self._tabla_cajero.setEditTriggers(QTableWidget.NoEditTriggers)
+        tab_caj = QWidget(); lc = QVBoxLayout(tab_caj)
+        barra_caj = QHBoxLayout()
+        barra_caj.addWidget(QLabel("Fuente")); barra_caj.addWidget(self._fuente_cajero)
+        barra_caj.addStretch(1)
+        lc.addLayout(barra_caj); lc.addWidget(self._tabla_cajero)
+
         tabs = QTabWidget()
         tabs.addTab(tab_ventas, "Ventas")
         tabs.addTab(tab_inv, "Inventario")
         tabs.addTab(tab_fac, "Por factura")
+        tabs.addTab(tab_caj, "Por cajero")
 
         layout = QVBoxLayout(self)
         layout.addLayout(barra)
@@ -132,6 +146,15 @@ class PantallaReportes(QWidget):
                 self._tabla_factura.setItem(fila, col, QTableWidgetItem(texto))
         self._detalle_factura.setRowCount(0)
 
+        self._fuente_cajero.blockSignals(True)
+        self._fuente_cajero.clear()
+        self._fuente_cajero.addItem("Rango de fechas", None)
+        for s in self._ctx.repo_sesiones.listar():
+            etiqueta = f"Sesión #{s.id} · {s.apertura_fecha.strftime('%Y-%m-%d %H:%M')}"
+            self._fuente_cajero.addItem(etiqueta, s.id)
+        self._fuente_cajero.blockSignals(False)
+        self._consultar_cajero()
+
     def _mostrar_detalle_factura(self) -> None:
         fila = self._tabla_factura.currentRow()
         self._detalle_factura.setRowCount(0)
@@ -152,3 +175,29 @@ class PantallaReportes(QWidget):
             nombre = medio.nombre if medio else f"#{p.medio_pago_id}"
             self._detalle_factura.setItem(r, 0, QTableWidgetItem(f"Pago · {nombre}"))
             self._detalle_factura.setItem(r, 2, QTableWidgetItem(formato_moneda(p.monto)))
+
+    def _consultar_cajero(self) -> None:
+        sesion_id = self._fuente_cajero.currentData()
+        if sesion_id is None:
+            desde, hasta = self._rango()
+            filas = self._ctx.svc_reportes.por_cajero(desde, hasta)
+        else:
+            filas = self._ctx.svc_reportes.por_cajero_de_sesion(sesion_id)
+        self._tabla_cajero.setRowCount(0)
+        for c in filas:
+            cajero = self._ctx.repo_usuarios.por_id(c.usuario_id) if c.usuario_id else None
+            fila = self._tabla_cajero.rowCount()
+            self._tabla_cajero.insertRow(fila)
+            valores = [
+                cajero.nombre if cajero else "Sin cajero", str(c.num_ventas),
+                formato_moneda(c.total), formato_moneda(c.total_devoluciones),
+                formato_moneda(c.neto)]
+            for col, texto in enumerate(valores):
+                self._tabla_cajero.setItem(fila, col, QTableWidgetItem(texto))
+            for medio_id, monto in c.por_medio.items():
+                medio = self._ctx.repo_medios_pago.por_id(medio_id)
+                nombre = medio.nombre if medio else f"#{medio_id}"
+                sub = self._tabla_cajero.rowCount()
+                self._tabla_cajero.insertRow(sub)
+                self._tabla_cajero.setItem(sub, 0, QTableWidgetItem(f"    {nombre}"))
+                self._tabla_cajero.setItem(sub, 4, QTableWidgetItem(formato_moneda(monto)))
