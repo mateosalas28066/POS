@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
@@ -21,6 +22,15 @@ def conectar(ruta: str = ":memory:") -> sqlite3.Connection:
 
 
 def aplicar_migraciones(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS schema_migraciones ("
+        "archivo TEXT PRIMARY KEY, aplicada_en TEXT NOT NULL)")
+    aplicadas = {r[0] for r in conn.execute("SELECT archivo FROM schema_migraciones")}
     for archivo in sorted(DIR_MIGRACIONES.glob("*.sql")):
+        if archivo.name in aplicadas:
+            continue
         conn.executescript(archivo.read_text(encoding="utf-8"))
+        conn.execute(
+            "INSERT INTO schema_migraciones (archivo, aplicada_en) VALUES (?, ?)",
+            (archivo.name, datetime.now(timezone.utc).isoformat()))
     conn.commit()
