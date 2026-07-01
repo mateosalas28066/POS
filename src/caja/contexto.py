@@ -9,6 +9,7 @@ from core.entidades import Usuario
 from core.perifericos.gs1 import FORMATO_PESO_DEFECTO, FormatoGS1
 from core.servicio_caja import ServicioCaja
 from core.servicio_clientes import ServicioClientes
+from core.servicio_promociones import ServicioPromociones
 from core.servicio_reportes import ServicioReportes
 from core.servicio_usuarios import ServicioUsuarios
 from core.servicio_venta import (
@@ -16,7 +17,7 @@ from core.servicio_venta import (
 )
 from inventario.repositorio_sqlite import (
     RepositorioCategoriasSQLite, RepositorioImpuestosSQLite,
-    RepositorioInventarioSQLite, RepositorioProductosSQLite,
+    RepositorioInventarioSQLite, RepositorioProductosSQLite, RepositorioPromocionesSQLite,
 )
 from ventas.repositorio_sqlite import (
     RepositorioCajaSesionesSQLite, RepositorioClientesSQLite,
@@ -47,6 +48,8 @@ class ContextoApp:
     svc_reportes: ServicioReportes
     repo_usuarios: RepositorioUsuariosSQLite = None  # type: ignore[assignment]
     svc_usuarios: ServicioUsuarios = None            # type: ignore[assignment]
+    repo_promociones: RepositorioPromocionesSQLite = None  # type: ignore[assignment]
+    svc_promociones: ServicioPromociones = None            # type: ignore[assignment]
     usuario_actual: Usuario | None = None
     formato_gs1: FormatoGS1 = FORMATO_PESO_DEFECTO
 
@@ -62,6 +65,7 @@ class ContextoApp:
         sesiones = RepositorioCajaSesionesSQLite(conn)
         devoluciones = RepositorioDevolucionesSQLite(conn)
         usuarios = RepositorioUsuariosSQLite(conn)
+        promociones = RepositorioPromocionesSQLite(conn)
         return cls(
             conn=conn,
             repo_productos=productos, repo_categorias=categorias, repo_impuestos=impuestos,
@@ -76,6 +80,8 @@ class ContextoApp:
                                           EFECTIVO_MEDIO_PAGO_ID),
             repo_usuarios=usuarios,
             svc_usuarios=ServicioUsuarios(usuarios),
+            repo_promociones=promociones,
+            svc_promociones=ServicioPromociones(promociones),
         )
 
     @classmethod
@@ -87,4 +93,4 @@ class ContextoApp:
         return self.usuario_actual.id if self.usuario_actual else None
 
     def nueva_venta(self) -> ServicioVenta:
-        return ServicioVenta(self.repo_productos, self.repo_impuestos)
+        return ServicioVenta(self.repo_productos, self.repo_impuestos, self.repo_promociones)

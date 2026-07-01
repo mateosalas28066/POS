@@ -15,9 +15,10 @@ from core.entidades import (
 from core.perifericos.gs1 import (
     FORMATO_PESO_DEFECTO, FormatoGS1, ResultadoGS1, decodificar_gs1, es_peso_variable,
 )
+from core.promociones import precio_con_promo, promo_vigente
 from core.puertos import (
     RepositorioDevoluciones, RepositorioImpuestos, RepositorioInventario,
-    RepositorioProductos, RepositorioVentas,
+    RepositorioProductos, RepositorioPromociones, RepositorioVentas,
 )
 
 CERO = Decimal("0")
@@ -39,14 +40,17 @@ class _Entrada:
     precio_unit: Decimal
     subtotal_bruto: Decimal
     tarifa: Decimal
+    promocion_id: int | None = None
 
 
 class ServicioVenta:
     """Acumula líneas de una venta en curso y la confirma como `Venta`."""
 
-    def __init__(self, productos: RepositorioProductos, impuestos: RepositorioImpuestos) -> None:
+    def __init__(self, productos: RepositorioProductos, impuestos: RepositorioImpuestos,
+                 promociones: RepositorioPromociones | None = None) -> None:
         self._productos = productos
         self._impuestos = impuestos
+        self._promociones = promociones
         self._entradas: list[_Entrada] = []
         self.descuento_pct: Decimal = CERO
 
@@ -55,9 +59,18 @@ class ServicioVenta:
             raise ValueError("descuento_pct debe estar en [0, 1)")
         self.descuento_pct = pct
 
+    def _promo_para(self, producto: Producto, importe: Decimal | None,
+                    ahora: datetime | None):
+        if self._promociones is None or importe is not None:
+            return None
+        promo = self._promociones.activa_por_producto(producto.id)
+        if promo is not None and promo_vigente(promo, ahora or datetime.now()):
+            return promo
+        return None
+
     def agregar(self, codigo_barras: str, *, cantidad: Decimal | int = 1,
-                peso_kg: Decimal | None = None,
-                importe: Decimal | None = None) -> LineaVenta:
+                peso_kg: Decimal | None = None, importe: Decimal | None = None,
+                ahora: datetime | None = None) -> LineaVenta:
         producto = self._productos.por_codigo(codigo_barras)
         if producto is None:
             raise ProductoNoEncontrado(f"producto inexistente: {codigo_barras!r}")
@@ -66,22 +79,24 @@ class ServicioVenta:
             impuesto = self._impuestos.por_id(producto.impuesto_id)
             if impuesto is not None:
                 tarifa = impuesto.tarifa
+        promo = self._promo_para(producto, importe, ahora)
+        precio = precio_con_promo(producto.precio, promo) if promo is not None else producto.precio
         if producto.vendido_por_peso:
             if peso_kg is None:
                 raise PesoRequerido(f"{producto.nombre} se vende por peso")
             cantidad_o_peso = peso_kg
-            bruto = (importe if importe is not None
-                     else subtotal_por_peso(producto.precio, peso_kg))
+            bruto = importe if importe is not None else subtotal_por_peso(precio, peso_kg)
         else:
             if importe is not None:
                 raise ValueError(
                     f"{producto.nombre} se vende por unidad; importe no aplica")
             cantidad_o_peso = Decimal(cantidad)
-            bruto = subtotal_por_unidad(producto.precio, cantidad_o_peso)
+            bruto = subtotal_por_unidad(precio, cantidad_o_peso)
         entrada = _Entrada(
             producto_id=producto.id, descripcion=producto.nombre,
-            cantidad_o_peso=cantidad_o_peso, precio_unit=producto.precio,
-            subtotal_bruto=bruto, tarifa=tarifa)
+            cantidad_o_peso=cantidad_o_peso, precio_unit=precio,
+            subtotal_bruto=bruto, tarifa=tarifa,
+            promocion_id=promo.id if promo is not None else None)
         self._entradas.append(entrada)
         return self._linea(entrada)
 
@@ -90,13 +105,15 @@ class ServicioVenta:
         return LineaVenta(
             producto_id=e.producto_id, descripcion=e.descripcion,
             cantidad_o_peso=e.cantidad_o_peso, precio_unit=e.precio_unit,
-            impuesto=impuesto_incluido(subtotal, e.tarifa), subtotal=subtotal)
+            impuesto=impuesto_incluido(subtotal, e.tarifa), subtotal=subtotal,
+            promocion_id=e.promocion_id)
 
     def agregar_escaneado(self, codigo: str,
-                          formato: FormatoGS1 = FORMATO_PESO_DEFECTO) -> LineaVenta:
+                          formato: FormatoGS1 = FORMATO_PESO_DEFECTO,
+                          ahora: datetime | None = None) -> LineaVenta:
         """Agrega según un código escaneado: GS1 de peso variable o EAN/PLU normal."""
         if not es_peso_variable(codigo, formato):
-            return self.agregar(codigo, cantidad=1)
+            return self.agregar(codigo, cantidad=1, ahora=ahora)
         resultado = decodificar_gs1(codigo, formato)
         producto = self._productos.por_codigo(resultado.codigo_producto)
         if producto is None:
@@ -106,7 +123,7 @@ class ServicioVenta:
             raise ValueError(
                 f"{producto.nombre} no se vende por peso pero el código es de peso variable")
         peso, importe = peso_e_importe_gs1(resultado, producto, formato.valor_es_precio)
-        return self.agregar(resultado.codigo_producto, peso_kg=peso, importe=importe)
+        return self.agregar(resultado.codigo_producto, peso_kg=peso, importe=importe, ahora=ahora)
 
     @property
     def lineas(self) -> tuple[LineaVenta, ...]:
