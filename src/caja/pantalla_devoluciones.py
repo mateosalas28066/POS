@@ -6,13 +6,14 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from PySide6.QtCore import Signal, Slot
 from PySide6.QtWidgets import (
-    QDoubleSpinBox, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton,
+    QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton,
     QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
 from caja.contexto import EFECTIVO_MEDIO_PAGO_ID, ContextoApp
 from caja.dialogos.dialogo_cobro import DialogoCobro
 from caja.formato import formato_cantidad, formato_moneda
+from caja.widgets import DecimalSpinBoxPos
 from core.entidades import ItemDevolucion, Pago, Venta
 from core.servicio_venta import (
     CantidadDevueltaExcede, ReembolsoDescuadrado, VentaNoDevolvible, VentaNoEncontrada,
@@ -29,7 +30,7 @@ class PantallaDevoluciones(QWidget):
         super().__init__()
         self._ctx = ctx
         self._venta: Venta | None = None
-        self._spins: list[QDoubleSpinBox] = []
+        self._spins: list[DecimalSpinBoxPos] = []
         self._remanentes: list[Decimal] = []
 
         self._id_venta = QLineEdit()
@@ -105,7 +106,7 @@ class PantallaDevoluciones(QWidget):
             self._tabla.setItem(fila, 2, QTableWidgetItem(
                 formato_cantidad(ya_devuelto.get(linea.id, CERO), "")))
             self._tabla.setItem(fila, 3, QTableWidgetItem(formato_cantidad(remanente, "")))
-            spin = QDoubleSpinBox()
+            spin = DecimalSpinBoxPos()
             spin.setDecimals(3)
             spin.setMaximum(float(remanente))
             spin.valueChanged.connect(self._refrescar_total)

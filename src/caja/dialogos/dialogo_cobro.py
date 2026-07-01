@@ -3,11 +3,10 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from PySide6.QtWidgets import (
-    QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout, QLabel, QVBoxLayout,
-)
+from PySide6.QtWidgets import QDialog, QDialogButtonBox, QFormLayout, QLabel, QVBoxLayout
 
 from caja.formato import formato_moneda
+from caja.widgets import SpinMoneda
 from core.entidades import MedioPago, Pago
 
 CERO = Decimal("0")
@@ -23,12 +22,10 @@ class DialogoCobro(QDialog):
         titulo = "Cobrar" if modo == "cobro" else "Reembolsar"
         self.setWindowTitle(titulo)
 
-        self._montos: dict[int, QDoubleSpinBox] = {}
+        self._montos: dict[int, SpinMoneda] = {}
         form = QFormLayout()
         for m in medios:
-            spin = QDoubleSpinBox()
-            spin.setMaximum(99_999_999)
-            spin.setDecimals(0)
+            spin = SpinMoneda()
             spin.valueChanged.connect(self._refrescar)
             self._montos[m.id] = spin
             form.addRow(m.nombre, spin)

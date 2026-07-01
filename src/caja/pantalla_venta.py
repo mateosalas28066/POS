@@ -6,14 +6,14 @@ from decimal import Decimal
 
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import (
-    QComboBox, QDoubleSpinBox, QGridLayout, QHBoxLayout, QInputDialog, QLabel, QLineEdit,
+    QComboBox, QGridLayout, QHBoxLayout, QInputDialog, QLabel, QLineEdit,
     QMessageBox, QPushButton, QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
 from caja.contexto import EFECTIVO_MEDIO_PAGO_ID, ContextoApp
 from caja.dialogos.dialogo_cobro import DialogoCobro
 from caja.formato import formato_cantidad, formato_moneda
-from caja.widgets import TarjetaProducto
+from caja.widgets import DecimalSpinBoxPos, TarjetaProducto
 from core.entidades import LineaVenta, Pago, Producto
 from core.permisos import ACCION_DESCUENTO_MANUAL, puede
 from core.servicio_venta import ProductoNoEncontrado, PesoRequerido
@@ -79,7 +79,7 @@ class PantallaVenta(QWidget):
 
         self._combo_cliente = QComboBox()
         self._combo_cliente.currentIndexChanged.connect(self._al_cambiar_cliente)
-        self._descuento_manual = QDoubleSpinBox()
+        self._descuento_manual = DecimalSpinBoxPos()
         self._descuento_manual.setSuffix(" %")
         self._descuento_manual.setRange(0, 99)
         self._descuento_manual.setVisible(puede(rol, ACCION_DESCUENTO_MANUAL))

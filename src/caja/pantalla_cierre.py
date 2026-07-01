@@ -6,14 +6,14 @@ from decimal import Decimal
 
 from PySide6.QtCore import Signal, Slot
 from PySide6.QtWidgets import (
-    QDialog, QDoubleSpinBox, QGridLayout, QHBoxLayout, QLabel, QMessageBox,
+    QDialog, QGridLayout, QHBoxLayout, QLabel, QMessageBox,
     QPushButton, QVBoxLayout, QWidget,
 )
 
 from caja.contexto import ContextoApp
 from caja.dialogos.dialogo_conteo import DialogoConteoEfectivo
 from caja.formato import formato_moneda
-from caja.widgets import TarjetaKpi
+from caja.widgets import SpinMoneda, TarjetaKpi
 from core.entidades import CajaSesion
 from core.servicio_caja import CajaNoAbierta, CajaYaAbierta
 
@@ -27,11 +27,10 @@ class PantallaCierre(QWidget):
         super().__init__()
         self._ctx = ctx
         self._layout = QVBoxLayout(self)
+        self._desglose_conteo: dict[int, int] | None = None
         # widgets persistentes para test/acceso
-        self._monto_inicial = QDoubleSpinBox()
-        self._monto_inicial.setMaximum(99_999_999); self._monto_inicial.setDecimals(0)
-        self._monto_contado = QDoubleSpinBox()
-        self._monto_contado.setMaximum(99_999_999); self._monto_contado.setDecimals(0)
+        self._monto_inicial = SpinMoneda()
+        self._monto_contado = SpinMoneda()
         self._monto_contado.valueChanged.connect(self._recalcular_arqueo)
         self._boton_abrir = QPushButton("Abrir caja"); self._boton_abrir.setObjectName("primario")
         self._boton_abrir.clicked.connect(self._abrir)
@@ -115,13 +114,16 @@ class PantallaCierre(QWidget):
         except (CajaYaAbierta, ValueError) as exc:
             self._estado.setText(f"Error: {exc}")
             return
+        self._desglose_conteo = None
+        self._monto_contado.setValue(0)
         self.al_mostrar()
         self.caja_cambiada.emit()
 
     @Slot()
     def _abrir_conteo(self) -> None:
-        dlg = DialogoConteoEfectivo(self)
+        dlg = DialogoConteoEfectivo(self, desglose=self._desglose_conteo)
         if dlg.exec() == QDialog.Accepted:
+            self._desglose_conteo = dlg.desglose()
             self._monto_contado.setValue(float(dlg.total()))
 
     @Slot()
@@ -136,6 +138,8 @@ class PantallaCierre(QWidget):
         except (CajaNoAbierta, ValueError) as exc:
             self._estado.setText(f"Error: {exc}")
             return
+        self._desglose_conteo = None
+        self._monto_contado.setValue(0)
         QMessageBox.information(self, "Cierre", "Caja cerrada.")
         self.al_mostrar()
         self.caja_cambiada.emit()

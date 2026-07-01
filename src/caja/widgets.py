@@ -3,10 +3,37 @@ from __future__ import annotations
 
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QFrame, QLabel, QToolButton, QVBoxLayout
+from PySide6.QtWidgets import QDoubleSpinBox, QFrame, QLabel, QSpinBox, QToolButton, QVBoxLayout
 
 from caja.formato import formato_moneda
 from core.entidades import Producto
+
+
+class SpinBoxPos(QSpinBox):
+    """QSpinBox que selecciona todo el contenido al enfocar (borra el 0 inicial)."""
+
+    def focusInEvent(self, event) -> None:  # noqa: N802 (Qt API)
+        super().focusInEvent(event)
+        self.selectAll()
+
+
+class DecimalSpinBoxPos(QDoubleSpinBox):
+    """QDoubleSpinBox que selecciona todo el contenido al enfocar."""
+
+    def focusInEvent(self, event) -> None:  # noqa: N802 (Qt API)
+        super().focusInEvent(event)
+        self.selectAll()
+
+
+class SpinMoneda(DecimalSpinBoxPos):
+    """Spin de dinero: sin decimales, separador de miles y prefijo $."""
+
+    def __init__(self, *, maximo: float = 99_999_999) -> None:
+        super().__init__()
+        self.setDecimals(0)
+        self.setMaximum(maximo)
+        self.setGroupSeparatorShown(True)
+        self.setPrefix("$ ")
 
 
 class TarjetaProducto(QFrame):
