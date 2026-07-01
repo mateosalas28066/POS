@@ -1,3 +1,4 @@
+from caja.bootstrap import ADMIN_POR_DEFECTO
 from caja.contexto import ContextoApp
 from core.servicio_venta import ServicioVenta
 
@@ -24,3 +25,15 @@ def test_contexto_expone_formato_gs1_peso_por_defecto():
     ctx = ContextoApp.crear(":memory:")
     assert ctx.formato_gs1.valor_es_precio is False
     ctx.conn.close()
+
+
+def test_contexto_autentica_admin_por_defecto():
+    ctx = ContextoApp.crear(":memory:")
+    nombre, password = ADMIN_POR_DEFECTO
+    assert ctx.svc_usuarios.autenticar(nombre, password) is not None
+
+
+def test_usuario_actual_id_none_por_defecto():
+    ctx = ContextoApp.crear(":memory:")
+    assert ctx.usuario_actual is None
+    assert ctx.usuario_actual_id is None

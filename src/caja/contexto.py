@@ -5,10 +5,12 @@ import sqlite3
 from dataclasses import dataclass
 
 from caja.bootstrap import preparar_db
+from core.entidades import Usuario
 from core.perifericos.gs1 import FORMATO_PESO_DEFECTO, FormatoGS1
 from core.servicio_caja import ServicioCaja
 from core.servicio_clientes import ServicioClientes
 from core.servicio_reportes import ServicioReportes
+from core.servicio_usuarios import ServicioUsuarios
 from core.servicio_venta import (
     ServicioAnulacion, ServicioDevolucion, ServicioRegistroVenta, ServicioVenta,
 )
@@ -18,7 +20,8 @@ from inventario.repositorio_sqlite import (
 )
 from ventas.repositorio_sqlite import (
     RepositorioCajaSesionesSQLite, RepositorioClientesSQLite,
-    RepositorioDevolucionesSQLite, RepositorioMediosPagoSQLite, RepositorioVentasSQLite,
+    RepositorioDevolucionesSQLite, RepositorioMediosPagoSQLite, RepositorioUsuariosSQLite,
+    RepositorioVentasSQLite,
 )
 
 EFECTIVO_MEDIO_PAGO_ID = 1
@@ -42,6 +45,9 @@ class ContextoApp:
     svc_caja: ServicioCaja
     svc_devolucion: ServicioDevolucion
     svc_reportes: ServicioReportes
+    repo_usuarios: RepositorioUsuariosSQLite = None  # type: ignore[assignment]
+    svc_usuarios: ServicioUsuarios = None            # type: ignore[assignment]
+    usuario_actual: Usuario | None = None
     formato_gs1: FormatoGS1 = FORMATO_PESO_DEFECTO
 
     @classmethod
@@ -55,6 +61,7 @@ class ContextoApp:
         ventas = RepositorioVentasSQLite(conn)
         sesiones = RepositorioCajaSesionesSQLite(conn)
         devoluciones = RepositorioDevolucionesSQLite(conn)
+        usuarios = RepositorioUsuariosSQLite(conn)
         return cls(
             conn=conn,
             repo_productos=productos, repo_categorias=categorias, repo_impuestos=impuestos,
@@ -67,11 +74,17 @@ class ContextoApp:
             svc_devolucion=ServicioDevolucion(ventas, devoluciones, inventario),
             svc_reportes=ServicioReportes(ventas, devoluciones, inventario, sesiones,
                                           EFECTIVO_MEDIO_PAGO_ID),
+            repo_usuarios=usuarios,
+            svc_usuarios=ServicioUsuarios(usuarios),
         )
 
     @classmethod
     def crear(cls, ruta_db: str = "pos.db") -> "ContextoApp":
         return cls.desde_conn(preparar_db(ruta_db))
+
+    @property
+    def usuario_actual_id(self) -> int | None:
+        return self.usuario_actual.id if self.usuario_actual else None
 
     def nueva_venta(self) -> ServicioVenta:
         return ServicioVenta(self.repo_productos, self.repo_impuestos)
