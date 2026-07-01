@@ -43,3 +43,27 @@ def test_pestana_cajero_usuario_nulo_es_sin_cajero():
     win = PantallaReportes(ctx)
     win.al_mostrar()
     assert win._tabla_cajero.item(0, 0).text() == "Sin cajero"
+
+
+def test_tabla_cajero_no_mezcla_metodos_de_pago_en_filas(monkeypatch):
+    _app = QApplication.instance() or QApplication([])
+    ctx = ContextoApp.crear(":memory:")
+    u = ctx.svc_usuarios.autenticar(*ADMIN_POR_DEFECTO)
+    _guardar_venta(ctx, u.id)
+    win = PantallaReportes(ctx)
+    win.al_mostrar()
+    # una sola fila por cajero: nada de sub-filas indentadas con método de pago
+    assert win._tabla_cajero.rowCount() == 1
+    assert not win._tabla_cajero.item(0, 0).text().startswith(" ")
+
+
+def test_seleccionar_cajero_muestra_metodos_de_pago_en_detalle():
+    _app = QApplication.instance() or QApplication([])
+    ctx = ContextoApp.crear(":memory:")
+    u = ctx.svc_usuarios.autenticar(*ADMIN_POR_DEFECTO)
+    _guardar_venta(ctx, u.id)
+    win = PantallaReportes(ctx)
+    win.al_mostrar()
+    win._tabla_cajero.selectRow(0)
+    assert win._detalle_cajero.rowCount() == 1
+    assert win._detalle_cajero.item(0, 1).text() == "$ 7.000"
