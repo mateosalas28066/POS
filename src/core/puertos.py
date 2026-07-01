@@ -7,7 +7,7 @@ from typing import Protocol
 
 from core.entidades import (
     CajaSesion, Categoria, Cliente, Devolucion, Impuesto, MedioPago,
-    MovimientoInventario, Pago, Producto, Venta,
+    MovimientoInventario, Pago, Producto, Usuario, Venta,
 )
 
 
@@ -48,6 +48,14 @@ class RepositorioClientes(Protocol):
 class RepositorioMediosPago(Protocol):
     def listar(self) -> list[MedioPago]: ...
     def por_id(self, id: int) -> MedioPago | None: ...
+
+
+class RepositorioUsuarios(Protocol):
+    def guardar(self, usuario: Usuario, hash_password: str) -> Usuario: ...
+    def por_id(self, id: int) -> Usuario | None: ...
+    def por_nombre(self, nombre: str) -> Usuario | None: ...
+    def credencial(self, nombre: str) -> tuple[Usuario, str] | None: ...
+    def listar(self) -> list[Usuario]: ...
 
 
 class RepositorioVentas(Protocol):
