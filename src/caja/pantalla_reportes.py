@@ -5,8 +5,8 @@ from datetime import datetime, time
 
 from PySide6.QtCore import QDate, Slot
 from PySide6.QtWidgets import (
-    QDateEdit, QGridLayout, QHBoxLayout, QLabel, QPushButton, QTabWidget,
-    QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
+    QAbstractItemView, QComboBox, QDateEdit, QGridLayout, QHBoxLayout, QLabel, QPushButton,
+    QTabWidget, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
 from caja.contexto import ContextoApp
@@ -51,9 +51,27 @@ class PantallaReportes(QWidget):
         self._tabla_inventario.setEditTriggers(QTableWidget.NoEditTriggers)
         tab_inv = QWidget(); li = QVBoxLayout(tab_inv); li.addWidget(self._tabla_inventario)
 
+        # Pestaña "Por factura"
+        self._facturas: tuple = ()
+        self._tabla_factura = QTableWidget(0, 7)
+        self._tabla_factura.setHorizontalHeaderLabels(
+            ["#", "Fecha", "Cajero", "Cliente", "Total", "IVA", "Estado"])
+        self._tabla_factura.setEditTriggers(QTableWidget.NoEditTriggers)
+        self._tabla_factura.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self._tabla_factura.setSelectionMode(QAbstractItemView.SingleSelection)
+        self._tabla_factura.itemSelectionChanged.connect(self._mostrar_detalle_factura)
+        self._detalle_factura = QTableWidget(0, 4)
+        self._detalle_factura.setHorizontalHeaderLabels(
+            ["Detalle", "Cant/Peso", "Subtotal", "IVA"])
+        self._detalle_factura.setEditTriggers(QTableWidget.NoEditTriggers)
+        tab_fac = QWidget(); lf = QVBoxLayout(tab_fac)
+        lf.addWidget(self._tabla_factura); lf.addWidget(QLabel("Detalle de la factura"))
+        lf.addWidget(self._detalle_factura)
+
         tabs = QTabWidget()
         tabs.addTab(tab_ventas, "Ventas")
         tabs.addTab(tab_inv, "Inventario")
+        tabs.addTab(tab_fac, "Por factura")
 
         layout = QVBoxLayout(self)
         layout.addLayout(barra)
@@ -97,3 +115,40 @@ class PantallaReportes(QWidget):
             self._tabla_inventario.setItem(fila, 1, QTableWidgetItem(str(mp.entradas)))
             self._tabla_inventario.setItem(fila, 2, QTableWidgetItem(str(mp.salidas)))
             self._tabla_inventario.setItem(fila, 3, QTableWidgetItem(str(mp.neto)))
+
+        self._facturas = self._ctx.svc_reportes.facturas(desde, hasta)
+        self._tabla_factura.setRowCount(0)
+        for v in self._facturas:
+            cajero = self._ctx.repo_usuarios.por_id(v.usuario_id) if v.usuario_id else None
+            cliente = self._ctx.repo_clientes.por_id(v.cliente_id) if v.cliente_id else None
+            fila = self._tabla_factura.rowCount()
+            self._tabla_factura.insertRow(fila)
+            valores = [
+                str(v.id), v.fecha.strftime("%Y-%m-%d %H:%M"),
+                cajero.nombre if cajero else "Sin cajero",
+                cliente.nombre if cliente else "—",
+                formato_moneda(v.total), formato_moneda(v.total_impuestos), v.estado]
+            for col, texto in enumerate(valores):
+                self._tabla_factura.setItem(fila, col, QTableWidgetItem(texto))
+        self._detalle_factura.setRowCount(0)
+
+    def _mostrar_detalle_factura(self) -> None:
+        fila = self._tabla_factura.currentRow()
+        self._detalle_factura.setRowCount(0)
+        if not (0 <= fila < len(self._facturas)):
+            return
+        v = self._facturas[fila]
+        for ln in v.lineas:
+            r = self._detalle_factura.rowCount()
+            self._detalle_factura.insertRow(r)
+            for col, texto in enumerate((ln.descripcion, str(ln.cantidad_o_peso),
+                                         formato_moneda(ln.subtotal),
+                                         formato_moneda(ln.impuesto))):
+                self._detalle_factura.setItem(r, col, QTableWidgetItem(texto))
+        for p in self._ctx.repo_ventas.pagos_de(v.id):
+            medio = self._ctx.repo_medios_pago.por_id(p.medio_pago_id)
+            r = self._detalle_factura.rowCount()
+            self._detalle_factura.insertRow(r)
+            nombre = medio.nombre if medio else f"#{p.medio_pago_id}"
+            self._detalle_factura.setItem(r, 0, QTableWidgetItem(f"Pago · {nombre}"))
+            self._detalle_factura.setItem(r, 2, QTableWidgetItem(formato_moneda(p.monto)))
