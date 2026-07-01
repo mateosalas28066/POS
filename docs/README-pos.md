@@ -50,3 +50,7 @@ y facturación electrónica DIAN mañana.
 | DIAN | Facturación electrónica (stub → proveedor) | pendiente |
 
 Suite: **259 passed** (`python -m pytest -q`, 2026-06-30).
+
+**Seguridad:** `caja.bootstrap.sembrar_admin` siembra un usuario `admin`/`admin1234` si no
+hay usuarios en la base. Esa contraseña por defecto debe cambiarse antes de desplegar en
+producción (el cambio de contraseña autoservicio queda fuera de alcance de este plan).
