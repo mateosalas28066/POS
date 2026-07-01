@@ -26,11 +26,11 @@ repositorio. Las reglas fiscales DIAN viven en `core`; `facturacion_dian/` solo 
 
 | Módulo | Responsabilidad |
 |---|---|
-| `src/core/` | Entidades, servicios de dominio (ServicioVenta, ServicioCaja, ServicioClientes), reglas (impuestos, precio×peso, arqueo), puertos, armado de factura DIAN |
+| `src/core/` | Entidades, servicios de dominio (ServicioVenta, ServicioCaja, ServicioClientes, ServicioUsuarios), reglas (impuestos, precio×peso, arqueo, descuento, permisos por rol, hash de contraseñas), puertos, armado de factura DIAN |
 | `src/core/perifericos/` | Puerto `LectorPeso` + adaptadores `BalanzaSerial`, `CodigoPesoGS1`, `IngresoManual` |
 | `src/inventario/` | Productos, stock, movimientos (adaptadores SQLite) |
 | `src/ventas/` | Persistencia no-UI del ciclo venta/caja: clientes, medios de pago, ventas, pagos, sesiones de caja (adaptadores SQLite) |
-| `src/caja/` | UI Qt: venta, clientes, cobro, devoluciones, cierre/arqueo |
+| `src/caja/` | UI Qt: login, venta (cliente + descuento), clientes, cobro, devoluciones, cierre/arqueo, usuarios/roles |
 | `src/facturacion_dian/` | Puerto `EmisorDIAN` + adaptadores (stub hoy, proveedor después) |
 | `src/sync_pdv/` | Patrón outbox para multi-local (diseñado, no implementado a fondo) |
 
@@ -53,6 +53,7 @@ Detalle: [docs/ponytail.md](docs/ponytail.md).
 - `facturacion-dian` — al trabajar en facturación electrónica / cumplimiento DIAN.
 - `db-design-pos` — al diseñar o modificar el modelo de datos / tablas.
 - `testing-pos` — al escribir o reorganizar pruebas.
+- `planes-pos` — al escribir o ejecutar una spec/plan de implementación (convención obligatoria de IDs de task).
 
 **Subagentes** (`.claude/agents/`):
 

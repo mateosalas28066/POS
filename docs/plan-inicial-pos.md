@@ -1,7 +1,11 @@
 # Plan inicial — epics y primeras tareas
 
+> **Documento histórico (2026-06-25).** Es el roadmap original con el que arrancó el proyecto;
+> su numeración de epics (E1–E8) difiere de la implementación real. Para el **estado actual**
+> (qué está implementado, en diseño o pendiente) consulta la tabla de
+> [README-pos.md](README-pos.md#estado-actual). Se conserva como registro de la planeación inicial.
+
 Roadmap de `pos-siesa-remake`. El **MVP local** son E1–E4; E5–E8 quedan como costuras diseñadas.
-**Aún no se escribe código de negocio**: este plan es la hoja de ruta a aprobar antes de implementar.
 
 ## Grafo de dependencias
 
