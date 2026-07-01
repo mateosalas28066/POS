@@ -14,12 +14,17 @@ from caja.contexto import EFECTIVO_MEDIO_PAGO_ID, ContextoApp
 from caja.dialogos.dialogo_cobro import DialogoCobro
 from caja.formato import formato_cantidad, formato_moneda
 from caja.widgets import TarjetaProducto
-from core.entidades import Pago, Producto
+from core.entidades import LineaVenta, Pago, Producto
 from core.permisos import ACCION_DESCUENTO_MANUAL, puede
 from core.servicio_venta import ProductoNoEncontrado, PesoRequerido
 
 CERO = Decimal("0")
 _COLS_GRID = 4
+
+
+def etiqueta_linea(linea: LineaVenta) -> str:
+    """Texto de la descripción en el carrito, con marca si la línea llevó promoción."""
+    return f"{linea.descripcion} • promo" if linea.promocion_id else linea.descripcion
 
 
 class PantallaVenta(QWidget):
@@ -221,7 +226,7 @@ class PantallaVenta(QWidget):
         for linea in lineas:
             fila = self._carrito.rowCount()
             self._carrito.insertRow(fila)
-            self._carrito.setItem(fila, 0, QTableWidgetItem(linea.descripcion))
+            self._carrito.setItem(fila, 0, QTableWidgetItem(etiqueta_linea(linea)))
             self._carrito.setItem(fila, 1, QTableWidgetItem(
                 formato_cantidad(linea.cantidad_o_peso, "")))
             self._carrito.setItem(fila, 2, QTableWidgetItem(formato_moneda(linea.subtotal)))
