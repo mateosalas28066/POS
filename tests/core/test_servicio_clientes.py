@@ -4,6 +4,7 @@ import pytest
 
 from core.entidades import Cliente
 from core.servicio_clientes import (
+    ClienteBloqueado,
     ClienteDuplicado,
     IDENTIFICACION_CONSUMIDOR_FINAL,
     ServicioClientes,
@@ -96,3 +97,18 @@ def test_consumidor_final_sin_sembrar_lanza_lookuperror():
     s = ServicioClientes(FakeRepoClientes())
     with pytest.raises(LookupError):
         s.consumidor_final()
+
+
+def test_actualizar_cliente_bloqueado_lanza():
+    repo = FakeRepoClientes()
+    s = ServicioClientes(repo)
+    c = repo.guardar(Cliente(identificacion="900", nombre="X", bloqueado_edicion=True))
+    with pytest.raises(ClienteBloqueado):
+        s.actualizar(replace(c, nombre="Nuevo"))
+
+
+def test_actualizar_cliente_no_bloqueado_ok():
+    repo = FakeRepoClientes()
+    s = ServicioClientes(repo)
+    c = repo.guardar(Cliente(identificacion="900", nombre="X"))
+    assert s.actualizar(replace(c, nombre="Nuevo")).nombre == "Nuevo"

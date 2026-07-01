@@ -11,6 +11,10 @@ class ClienteDuplicado(ValueError):
     pass
 
 
+class ClienteBloqueado(ValueError):
+    pass
+
+
 class ServicioClientes:
     """Reglas del maestro de clientes sobre un RepositorioClientes."""
 
@@ -35,6 +39,9 @@ class ServicioClientes:
     def actualizar(self, cliente: Cliente) -> Cliente:
         if cliente.id is None:
             raise ValueError("no se puede actualizar un cliente sin id")
+        actual = self._repo.por_id(cliente.id)
+        if actual is not None and actual.bloqueado_edicion:
+            raise ClienteBloqueado(f"cliente {cliente.id} bloqueado para edición")
         return self._repo.actualizar(cliente)
 
     def buscar(self, identificacion: str) -> Cliente | None:
