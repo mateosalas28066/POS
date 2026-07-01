@@ -12,6 +12,7 @@ from caja.dialogos.dialogo_movimiento import DialogoMovimiento
 from caja.dialogos.dialogo_producto import DialogoProducto
 from caja.formato import formato_cantidad, formato_moneda
 from core.entidades import MovimientoInventario, Producto
+from core.permisos import ACCION_EDITAR_PRODUCTOS, puede
 
 _COLS = ["Código", "Nombre", "Categoría", "Precio", "Costo", "Stock", "Unidad"]
 _COLOR_ALERTA = QColor("#F59E0B")
@@ -27,16 +28,21 @@ class PantallaInventario(QWidget):
         self._busqueda.setPlaceholderText("Buscar por nombre o código…")
         self._busqueda.textChanged.connect(self._filtrar)
 
-        boton_nuevo = QPushButton("Nuevo producto")
-        boton_nuevo.clicked.connect(self._crear_producto)
+        self._boton_nuevo = QPushButton("Nuevo producto")
+        self._boton_nuevo.clicked.connect(self._crear_producto)
         self._boton_editar = QPushButton("Editar")
         self._boton_editar.clicked.connect(self._editar_producto)
         self._boton_mov = QPushButton("Movimiento")
         self._boton_mov.clicked.connect(self._registrar_movimiento)
 
+        rol = ctx.usuario_actual.rol if ctx.usuario_actual else "cajero"
+        puede_editar = puede(rol, ACCION_EDITAR_PRODUCTOS)
+        self._boton_nuevo.setVisible(puede_editar)
+        self._boton_editar.setVisible(puede_editar)
+
         barra = QHBoxLayout()
         barra.addWidget(self._busqueda, 1)
-        barra.addWidget(boton_nuevo)
+        barra.addWidget(self._boton_nuevo)
         barra.addWidget(self._boton_editar)
         barra.addWidget(self._boton_mov)
 

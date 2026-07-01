@@ -15,18 +15,21 @@ from caja.pantalla_clientes import PantallaClientes
 from caja.pantalla_devoluciones import PantallaDevoluciones
 from caja.pantalla_inventario import PantallaInventario
 from caja.pantalla_reportes import PantallaReportes
+from caja.pantalla_usuarios import PantallaUsuarios
 from caja.pantalla_venta import PantallaVenta
 from caja.tema import icono
 from caja.widgets import BotonRail
+from core.permisos import ACCION_GESTIONAR_USUARIOS, puede
 
-# (icono, tooltip, factory)
+# (icono, tooltip, factory, permiso)
 _DEFINICION = [
-    ("venta", "Venta", PantallaVenta),
-    ("inventario", "Inventario", PantallaInventario),
-    ("clientes", "Clientes", PantallaClientes),
-    ("devoluciones", "Devoluciones", PantallaDevoluciones),
-    ("reportes", "Reportes", PantallaReportes),
-    ("cierre", "Cierre", PantallaCierre),
+    ("venta", "Venta", PantallaVenta, None),
+    ("inventario", "Inventario", PantallaInventario, None),
+    ("clientes", "Clientes", PantallaClientes, None),
+    ("devoluciones", "Devoluciones", PantallaDevoluciones, None),
+    ("reportes", "Reportes", PantallaReportes, None),
+    ("cierre", "Cierre", PantallaCierre, None),
+    ("clientes", "Usuarios", PantallaUsuarios, ACCION_GESTIONAR_USUARIOS),
 ]
 
 
@@ -47,7 +50,9 @@ class VentanaPrincipal(QMainWindow):
         rail_layout = QVBoxLayout(rail)
         rail_layout.setContentsMargins(0, 8, 0, 8)
 
-        for i, (ic, tip, factory) in enumerate(_DEFINICION):
+        rol = ctx.usuario_actual.rol if ctx.usuario_actual else "cajero"
+        visibles = [d for d in _DEFINICION if d[3] is None or puede(rol, d[3])]
+        for i, (ic, tip, factory, _permiso) in enumerate(visibles):
             pantalla = self._construir_pantalla(factory)
             self._pantallas.append(pantalla)
             self._stack.addWidget(pantalla)
@@ -71,6 +76,8 @@ class VentanaPrincipal(QMainWindow):
     def _construir_pantalla(self, factory) -> QWidget:
         if factory is PantallaClientes:
             pantalla = factory(self._ctx.svc_clientes)
+        elif factory is PantallaUsuarios:
+            pantalla = factory(self._ctx.svc_usuarios)
         else:
             pantalla = factory(self._ctx)
         if hasattr(pantalla, "caja_cambiada"):

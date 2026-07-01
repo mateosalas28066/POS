@@ -35,3 +35,24 @@ def test_barra_estado_refleja_caja_abierta():
     win = VentanaPrincipal(ctx)
     win._refrescar_estado()
     assert "abierta" in win.statusBar().currentMessage().lower()
+
+
+from core.entidades import Usuario  # noqa: E402
+
+
+def _tooltips(win):
+    return {b.toolTip() for b in win._botones}
+
+
+def test_rail_muestra_usuarios_solo_a_admin():
+    _app = QApplication.instance() or QApplication([])
+    ctx = ContextoApp.crear(":memory:")
+    ctx.usuario_actual = Usuario(nombre="admin", rol="admin", id=1)
+    assert "Usuarios" in _tooltips(VentanaPrincipal(ctx))
+
+
+def test_rail_oculta_usuarios_a_cajero():
+    _app = QApplication.instance() or QApplication([])
+    ctx = ContextoApp.crear(":memory:")
+    ctx.usuario_actual = Usuario(nombre="c", rol="cajero", id=2)
+    assert "Usuarios" not in _tooltips(VentanaPrincipal(ctx))
