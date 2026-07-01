@@ -36,16 +36,25 @@ class SpinMoneda(DecimalSpinBoxPos):
         self.setPrefix("$ ")
 
 
+ANCHO_CARD = 150
+ALTO_CARD = 140
+
+
 class TarjetaProducto(QFrame):
-    """Card clickable con nombre, precio y categoría de un producto."""
+    """Card clickable con nombre, precio, categoría, y badge de stock/promo."""
 
     seleccionado = Signal(object)
 
-    def __init__(self, producto: Producto, nombre_categoria: str = "") -> None:
+    def __init__(self, producto: Producto, nombre_categoria: str = "", *,
+                 agotado: bool = False, en_promo: bool = False) -> None:
         super().__init__()
         self._producto = producto
+        self._agotado = agotado
         self.setObjectName("card")
-        self.setCursor(Qt.PointingHandCursor)
+        self.setFixedSize(ANCHO_CARD, ALTO_CARD)
+        self.setCursor(Qt.ArrowCursor if agotado else Qt.PointingHandCursor)
+        self.setProperty("agotado", agotado)
+        self.setProperty("promo", en_promo)
 
         nombre = QLabel(producto.nombre)
         nombre.setWordWrap(True)
@@ -58,9 +67,16 @@ class TarjetaProducto(QFrame):
         layout.addWidget(nombre)
         layout.addWidget(precio)
         layout.addWidget(cat)
+        if en_promo:
+            badge = QLabel("Promo"); badge.setObjectName("badge-promo")
+            layout.addWidget(badge)
+        if agotado:
+            badge = QLabel("Agotado"); badge.setObjectName("badge-agotado")
+            layout.addWidget(badge)
 
     def _emitir(self) -> None:
-        self.seleccionado.emit(self._producto)
+        if not self._agotado:
+            self.seleccionado.emit(self._producto)
 
     def mousePressEvent(self, event) -> None:  # noqa: N802 (Qt API)
         self._emitir()

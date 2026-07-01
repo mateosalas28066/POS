@@ -38,3 +38,28 @@ def test_boton_rail_es_checkable():
     b = BotonRail(icono("venta"), "Venta")
     assert b.isCheckable()
     assert b.toolTip() == "Venta"
+
+
+def test_tarjeta_producto_tamano_fijo():
+    _app = QApplication.instance() or QApplication([])
+    p = Producto(codigo_barras="B1", nombre="Manzana", precio=Decimal("6500"), id=1)
+    tarjeta = TarjetaProducto(p)
+    assert tarjeta.minimumSize() == tarjeta.maximumSize()
+
+
+def test_tarjeta_producto_agotada_no_emite_ni_es_clickeable():
+    _app = QApplication.instance() or QApplication([])
+    p = Producto(codigo_barras="B1", nombre="Manzana", precio=Decimal("6500"), id=1)
+    tarjeta = TarjetaProducto(p, agotado=True)
+    recibido = []
+    tarjeta.seleccionado.connect(lambda prod: recibido.append(prod))
+    tarjeta._emitir()
+    assert recibido == []
+    assert tarjeta.property("agotado") is True
+
+
+def test_tarjeta_producto_en_promo_marca_propiedad():
+    _app = QApplication.instance() or QApplication([])
+    p = Producto(codigo_barras="B1", nombre="Manzana", precio=Decimal("6500"), id=1)
+    tarjeta = TarjetaProducto(p, en_promo=True)
+    assert tarjeta.property("promo") is True

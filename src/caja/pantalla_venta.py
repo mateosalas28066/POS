@@ -19,7 +19,7 @@ from core.permisos import ACCION_DESCUENTO_MANUAL, puede
 from core.servicio_venta import ProductoNoEncontrado, PesoRequerido
 
 CERO = Decimal("0")
-_COLS_GRID = 4
+_COLS_GRID = 5
 
 
 def etiqueta_linea(linea: LineaVenta) -> str:
@@ -47,6 +47,7 @@ class PantallaVenta(QWidget):
         self._fila_chips = QHBoxLayout()
         self._cont_grid = QWidget()
         self._grid = QGridLayout(self._cont_grid)
+        self._grid.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(self._cont_grid)
@@ -162,10 +163,12 @@ class PantallaVenta(QWidget):
             t.deleteLater()
         self._tarjetas = []
         nombres_cat = {c.id: c.nombre for c in self._ctx.repo_categorias.listar()}
-        for i, p in enumerate(self._ctx.repo_productos.listar()):
-            tarjeta = TarjetaProducto(p, nombres_cat.get(p.categoria_id, ""))
+        for p in self._ctx.repo_productos.listar():
+            agotado = self._ctx.repo_inventario.stock_de(p.id) <= CERO
+            en_promo = self._ctx.repo_promociones.activa_por_producto(p.id) is not None
+            tarjeta = TarjetaProducto(p, nombres_cat.get(p.categoria_id, ""),
+                                      agotado=agotado, en_promo=en_promo)
             tarjeta.seleccionado.connect(self._agregar_producto)
-            self._grid.addWidget(tarjeta, i // _COLS_GRID, i % _COLS_GRID)
             self._tarjetas.append(tarjeta)
         self._aplicar_filtro()
 
@@ -179,12 +182,25 @@ class PantallaVenta(QWidget):
     @Slot()
     def _aplicar_filtro(self) -> None:
         texto = self._busqueda.text().strip().lower()
+        visibles = []
         for t in self._tarjetas:
             p = t._producto
             visible = (self._categoria_filtro is None or p.categoria_id == self._categoria_filtro)
             if texto:
                 visible = visible and (texto in p.nombre.lower() or texto in p.codigo_barras.lower())
             t.setVisible(visible)
+            if visible:
+                visibles.append(t)
+        self._reubicar_grid(visibles)
+
+    def _reubicar_grid(self, visibles: list[TarjetaProducto]) -> None:
+        while self._grid.count():
+            self._grid.takeAt(0)
+        for i, t in enumerate(visibles):
+            self._grid.addWidget(t, i // _COLS_GRID, i % _COLS_GRID)
+        filas = (len(visibles) + _COLS_GRID - 1) // _COLS_GRID if visibles else 1
+        self._grid.setRowStretch(filas, 1)
+        self._grid.setColumnStretch(_COLS_GRID, 1)
 
     # ---- carrito ----
     @Slot(object)
