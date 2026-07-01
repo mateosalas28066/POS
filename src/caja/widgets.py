@@ -1,7 +1,7 @@
 """Widgets reutilizables. Solo composición Qt; estilo en tema.qss."""
 from __future__ import annotations
 
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QDoubleSpinBox, QFrame, QLabel, QSpinBox, QToolButton, QVBoxLayout
 
@@ -10,19 +10,24 @@ from core.entidades import Producto
 
 
 class SpinBoxPos(QSpinBox):
-    """QSpinBox que selecciona todo el contenido al enfocar (borra el 0 inicial)."""
+    """QSpinBox que selecciona todo el contenido al enfocar (borra el 0 inicial).
+
+    El clic que dispara el foco llega como mousePressEvent justo después de
+    focusInEvent y reposiciona el cursor, deshaciendo un selectAll() inmediato;
+    por eso se difiere con singleShot(0, ...) a después de procesar ese clic.
+    """
 
     def focusInEvent(self, event) -> None:  # noqa: N802 (Qt API)
         super().focusInEvent(event)
-        self.selectAll()
+        QTimer.singleShot(0, self.selectAll)
 
 
 class DecimalSpinBoxPos(QDoubleSpinBox):
-    """QDoubleSpinBox que selecciona todo el contenido al enfocar."""
+    """QDoubleSpinBox que selecciona todo el contenido al enfocar (ver SpinBoxPos)."""
 
     def focusInEvent(self, event) -> None:  # noqa: N802 (Qt API)
         super().focusInEvent(event)
-        self.selectAll()
+        QTimer.singleShot(0, self.selectAll)
 
 
 class SpinMoneda(DecimalSpinBoxPos):
