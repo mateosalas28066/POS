@@ -106,6 +106,15 @@ class Cliente:
 
 
 @dataclass(frozen=True)
+class Proveedor:
+    identificacion: str
+    nombre: str
+    contacto: str | None = None
+    bloqueado_edicion: bool = False
+    id: int | None = None
+
+
+@dataclass(frozen=True)
 class Pago:
     medio_pago_id: int
     monto: Decimal
