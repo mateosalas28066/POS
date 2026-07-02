@@ -49,10 +49,11 @@ y facturación electrónica DIAN mañana.
 | RPTFAC | Reportes por factura (listado + detalle) y por cajero (rango y sesión) sobre `ServicioReportes` (`facturas`, `por_cajero`, `por_cajero_de_sesion`) + pestañas "Por factura" y "Por cajero" en `PantallaReportes` ([spec](superpowers/specs/2026-07-01-reportes-factura-cajero-design.md) · [plan](superpowers/plans/2026-07-01-reportes-factura-cajero.md)) | ✅ implementado |
 | PROMO | Promociones por producto (precio fijo o %, duración por tiempo/unidades/manual): dominio `Promocion` + reglas `promo_vigente/precio_con_promo/consumir_unidades`, `ServicioPromociones` (una activa por producto), `RepositorioPromocionesSQLite` (migración 006), `ServicioVenta` aplica la promo antes del descuento del cliente y consume unidades al registrar, `DialogoPromociones` desde inventario y marca visual en la venta ([spec](superpowers/specs/2026-07-01-promociones-conteo-caja-design.md) · [plan](superpowers/plans/2026-07-01-promociones-conteo-caja.md)) | ✅ implementado |
 | CONTEO | Conteo de efectivo por denominaciones (COP) en el cierre: `caja/conteo.py` (`DENOMINACIONES` + `total_conteo`), `DialogoConteoEfectivo` y botón "Contar efectivo" que rellena el monto contado (ayuda opcional, no bloquea el cierre) ([spec](superpowers/specs/2026-07-01-promociones-conteo-caja-design.md) · [plan](superpowers/plans/2026-07-01-promociones-conteo-caja.md)) | ✅ implementado |
+| FASE1 | Core de caja (roadmap cliente): movimientos manuales de efectivo (`MovimientoCaja`, migración 007, `ServicioCaja.registrar_movimiento`, arqueo con otros ingresos/egresos, `DialogoMovimientoCaja` en cierre), reporte de ventas por categoría (`ServicioReportes.por_categoria` + pestaña "Por categoría"), cambio de contraseña autoservicio (`cambiar_password` + `DialogoCambioPassword` desde el rail) ([análisis](analisis-requerimientos-cliente.md)) | ✅ implementado |
 | E8 | Sync offline/outbox | pendiente |
 | DIAN | Facturación electrónica (stub → proveedor) | pendiente |
 
-Suite: **335 passed** (`python -m pytest -q`, 2026-07-01).
+Suite: **367 passed** (`python -m pytest -q`, 2026-07-01).
 
 **Seguridad:** `caja.bootstrap.sembrar_admin` siembra un usuario `admin`/`admin1234` si no
 hay usuarios en la base. Esa contraseña por defecto debe cambiarse antes de desplegar en
