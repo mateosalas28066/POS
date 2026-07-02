@@ -14,6 +14,7 @@ from caja.formato import formato_moneda
 from caja.pantalla_cierre import PantallaCierre
 from caja.pantalla_clientes import PantallaClientes
 from caja.pantalla_compras import PantallaCompras
+from caja.pantalla_cuentas import PantallaCuentas
 from caja.pantalla_despiece import PantallaDespiece
 from caja.pantalla_devoluciones import PantallaDevoluciones
 from caja.pantalla_inventario import PantallaInventario
@@ -32,6 +33,7 @@ _DEFINICION = [
     ("clientes", "Clientes", PantallaClientes, None),
     ("clientes", "Proveedores", PantallaProveedores, None),
     ("inventario", "Compras", PantallaCompras, None),
+    ("clientes", "Cuentas", PantallaCuentas, None),
     ("inventario", "Despiece", PantallaDespiece, None),
     ("devoluciones", "Devoluciones", PantallaDevoluciones, None),
     ("reportes", "Reportes", PantallaReportes, None),

@@ -17,8 +17,8 @@ from caja.ventana_principal import VentanaPrincipal  # noqa: E402
 def test_shell_registra_todas_las_pantallas():
     _app = QApplication.instance() or QApplication([])
     win = VentanaPrincipal(ContextoApp.crear(":memory:"))
-    assert len(win._pantallas) == 9
-    assert win._stack.count() == 9
+    assert len(win._pantallas) == 10
+    assert win._stack.count() == 10
 
 
 def test_navegar_cambia_pantalla_activa():

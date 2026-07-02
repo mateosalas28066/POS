@@ -282,7 +282,11 @@ class PantallaVenta(QWidget):
         sesion = self._ctx.repo_sesiones.abierta()
         if sesion is None or not self._venta.lineas:
             return
-        dlg = DialogoCobro(self._total_actual(), self._ctx.repo_medios_pago.listar(),
+        cf = self._ctx.svc_clientes.consumidor_final()
+        identificado = self._cliente is not None and self._cliente.id != cf.id
+        medios = [m for m in self._ctx.repo_medios_pago.listar()
+                  if m.id != 4 or identificado]
+        dlg = DialogoCobro(self._total_actual(), medios,
                            modo="cobro", efectivo_id=EFECTIVO_MEDIO_PAGO_ID, parent=self)
         if dlg.exec() != DialogoCobro.Accepted:
             return
