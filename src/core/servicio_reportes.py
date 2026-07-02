@@ -44,6 +44,15 @@ class ReporteCajero:
 
 
 @dataclass(frozen=True)
+class ReporteCategoria:
+    categoria_id: int | None
+    total: Decimal               # Σ subtotales de líneas vendidas (descuento ya aplicado)
+    total_impuestos: Decimal
+    total_devoluciones: Decimal
+    neto: Decimal                # total − devoluciones
+
+
+@dataclass(frozen=True)
 class MovimientoProducto:
     producto_id: int
     entradas: Decimal
@@ -182,6 +191,30 @@ class ServicioReportes:
             for uid, b in agg.items()]
         return tuple(sorted(reportes,
                             key=lambda r: (r.usuario_id is None, r.usuario_id or 0)))
+
+    def por_categoria(self, desde: datetime, hasta: datetime) -> tuple[ReporteCategoria, ...]:
+        if self._productos is None:
+            raise RuntimeError("ServicioReportes sin repositorio de productos")
+        categoria_de = {p.id: p.categoria_id for p in self._productos.listar()}
+        agg: dict[int | None, dict] = {}
+
+        def bucket(cat: int | None) -> dict:
+            return agg.setdefault(cat, {"total": CERO, "imp": CERO, "dev": CERO})
+
+        for v in self._ventas.ventas_en(desde, hasta):
+            for ln in v.lineas:
+                b = bucket(categoria_de.get(ln.producto_id))
+                b["total"] += ln.subtotal
+                b["imp"] += ln.impuesto
+        for d in self._devoluciones.devoluciones_en(desde, hasta):
+            for ln in d.lineas:
+                bucket(categoria_de.get(ln.producto_id))["dev"] += ln.subtotal
+        reportes = [
+            ReporteCategoria(categoria_id=cat, total=b["total"], total_impuestos=b["imp"],
+                             total_devoluciones=b["dev"], neto=b["total"] - b["dev"])
+            for cat, b in agg.items()]
+        return tuple(sorted(reportes,
+                            key=lambda r: (r.categoria_id is None, r.categoria_id or 0)))
 
     def facturas(self, desde: datetime, hasta: datetime) -> tuple[Venta, ...]:
         vs = self._ventas.ventas_en(desde, hasta)

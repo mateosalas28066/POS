@@ -46,6 +46,13 @@ class PantallaReportes(QWidget):
         tab_ventas = QWidget(); lv = QVBoxLayout(tab_ventas)
         lv.addLayout(kpis); lv.addWidget(self._tabla_ventas)
 
+        # Pestaña "Por categoría"
+        self._tabla_categoria = QTableWidget(0, 5)
+        self._tabla_categoria.setHorizontalHeaderLabels(
+            ["Categoría", "Ventas", "IVA", "Devoluciones", "Neto"])
+        self._tabla_categoria.setEditTriggers(QTableWidget.NoEditTriggers)
+        tab_cat = QWidget(); lcat = QVBoxLayout(tab_cat); lcat.addWidget(self._tabla_categoria)
+
         self._tabla_inventario = QTableWidget(0, 4)
         self._tabla_inventario.setHorizontalHeaderLabels(
             ["Producto", "Entradas", "Salidas", "Neto"])
@@ -93,6 +100,7 @@ class PantallaReportes(QWidget):
 
         tabs = QTabWidget()
         tabs.addTab(tab_ventas, "Ventas")
+        tabs.addTab(tab_cat, "Por categoría")
         tabs.addTab(tab_inv, "Inventario")
         tabs.addTab(tab_fac, "Por factura")
         tabs.addTab(tab_caj, "Por cajero")
@@ -127,6 +135,18 @@ class PantallaReportes(QWidget):
             self._tabla_ventas.setItem(fila, 0, QTableWidgetItem(
                 medio.nombre if medio else f"#{medio_id}"))
             self._tabla_ventas.setItem(fila, 1, QTableWidgetItem(formato_moneda(monto)))
+
+        nombres_cat = {c.id: c.nombre for c in self._ctx.repo_categorias.listar()}
+        self._tabla_categoria.setRowCount(0)
+        for rc in self._ctx.svc_reportes.por_categoria(desde, hasta):
+            fila = self._tabla_categoria.rowCount()
+            self._tabla_categoria.insertRow(fila)
+            valores = [
+                nombres_cat.get(rc.categoria_id, "Sin categoría"),
+                formato_moneda(rc.total), formato_moneda(rc.total_impuestos),
+                formato_moneda(rc.total_devoluciones), formato_moneda(rc.neto)]
+            for col, texto in enumerate(valores):
+                self._tabla_categoria.setItem(fila, col, QTableWidgetItem(texto))
 
         ri = self._ctx.svc_reportes.inventario(desde, hasta)
         self._tabla_inventario.setRowCount(0)
