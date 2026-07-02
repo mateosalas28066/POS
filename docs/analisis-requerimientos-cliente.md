@@ -31,9 +31,9 @@ Leyenda: ✅ implementado · 🟡 parcial · ❌ no existe · 📐 diseñado (co
 
 | Requerimiento | Estado | Detalle |
 |---|---|---|
-| Clientes con saldo pendiente (fiado) | ❌ | Existe maestro de clientes (`ServicioClientes`), pero sin concepto de crédito/saldo |
-| Consulta de cuentas pendientes + abonos | ❌ | — |
-| Obligaciones con proveedores (CxP) | ❌ | No existe el concepto de proveedor en el sistema |
+| Clientes con saldo pendiente (fiado) | ✅ | Fase 3: venta a crédito con medio "Crédito/Fiado" (solo cliente identificado); saldo global por cliente (Σ fiado − Σ abonos) en `ServicioCuentasCobrar` |
+| Consulta de cuentas pendientes + abonos | ✅ | `PantallaCuentas` pestaña "Por cobrar": clientes con saldo + abono (efectivo pasa por caja como ingreso) |
+| Obligaciones con proveedores (CxP) | ✅ | Fase 3: `ServicioCuentasPagar` sobre compras a crédito (Fase 2); saldo por proveedor + pagos (efectivo→egreso); `PantallaCuentas` pestaña "Por pagar" |
 
 ### 4. Nómina
 
@@ -45,14 +45,14 @@ Leyenda: ✅ implementado · 🟡 parcial · ❌ no existe · 📐 diseñado (co
 
 | Requerimiento | Estado |
 |---|---|
-| Maestro de proveedores, contacto, historial de compras | ❌ No existe |
+| Maestro de proveedores, contacto, historial de compras | ✅ | Fase 2: `Proveedor` + `ServicioProveedores` + `PantallaProveedores`; historial vía `ServicioReportes.compras_por_proveedor` |
 
 ### 6. Ventas separadas por categoría (Res, Pollo, Cerdo, Fruver)
 
 | Requerimiento | Estado | Detalle |
 |---|---|---|
 | Categorías de producto | ✅ | Tabla `categorias` + `categoria_id` en producto, visible en inventario y venta |
-| Reporte de ventas por categoría | ❌ | `ServicioReportes` reporta por período, factura, cajero y sesión — **no por categoría**. Es un agregado más sobre datos que ya existen (gap pequeño) |
+| Reporte de ventas por categoría | ✅ | Fase 1: `ServicioReportes.por_categoria` + pestaña "Por categoría" en reportes |
 
 ### 7. Traslado de mercancía entre locales
 
@@ -61,9 +61,12 @@ mono-local por diseño (offline-first, "costuras para multi-local mañana").
 
 ### 8. Compras a proveedores
 
-❌ No existe registro de compras. Lo más cercano: movimientos de inventario entrada/salida
-(sin proveedor, sin documento de compra, sin detalle de canal res/cerdo). El producto ya tiene
-campo `costo`, que serviría de base.
+✅ Fase 2: `Compra`/`LineaCompra` + `ServicioCompras` registran la compra (documento con
+proveedor, líneas producto/cantidad/costo, contado o crédito), alimentan el stock y actualizan el
+`costo` del producto. La compra "en canal" (res/cerdo entero) es una línea normal; el **despiece**
+(`ServicioDespiece`) reparte el costo del canal entre los cortes **por valor de venta** (fallback a
+peso), genera los movimientos de inventario y actualiza el costo de cada corte. `PantallaCompras` y
+`PantallaDespiece` en el rail.
 
 ### 9. Conexión entre comercios
 
@@ -71,26 +74,29 @@ campo `costo`, que serviría de base.
 
 ### 10. Reportes mensuales
 
-🟡 Los reportes existentes aceptan cualquier rango de fechas (incluido un mes): ventas,
-inventario/movimientos, cierre, por factura, por cajero. **Faltan** los que dependen de módulos
-inexistentes: gastos, compras, CxC, CxP, traslados.
+✅ Fase 4: `ServicioReportes.mensual(anio, mes)` consolida ventas, compras, gastos y saldos
+globales CxC/CxP del mes en un `ReporteMensual`, con pestaña "Mensual" en reportes. Los reportes
+por rango (ventas, inventario, cierre, factura, cajero, categoría, compras) siguen disponibles.
+Pendiente solo el de traslados (depende de multi-local, E8).
 
 ### 11. Gastos
 
-❌ No existe registro ni clasificación de gastos.
+✅ Fase 4: `CategoriaGasto` (lista fija administrable con seed: arriendo, servicios, transporte,
+nómina, otros) + `Gasto` + `ServicioGastos` (gasto en efectivo → egreso de caja); `PantallaGastos`
+registra, lista por período y administra categorías (solo admin).
 
 ### Matriz de reportes requeridos
 
 | Reporte pedido | Estado |
 |---|---|
-| Ventas por mes | ✅ (reporte por período) |
-| Ventas por categoría | ❌ (datos listos, falta el agregado) |
-| Compras a proveedores | ❌ (depende de módulo Compras) |
-| Gastos | ❌ (depende de módulo Gastos) |
-| Cuentas por cobrar | ❌ (depende de CxC) |
-| Cuentas por pagar | ❌ (depende de CxP) |
+| Ventas por mes | ✅ (reporte por período + consolidado mensual) |
+| Ventas por categoría | ✅ (Fase 1: `por_categoria`) |
+| Compras a proveedores | ✅ (Fase 2: pestaña "Compras") |
+| Gastos | ✅ (Fase 4: `PantallaGastos` + mensual) |
+| Cuentas por cobrar | ✅ (Fase 3: `PantallaCuentas` "Por cobrar") |
+| Cuentas por pagar | ✅ (Fase 3: `PantallaCuentas` "Por pagar") |
 | Inventario trasladado entre locales | ❌ (depende de Traslados) |
-| Historial de compras por proveedor | ❌ (depende de Proveedores/Compras) |
+| Historial de compras por proveedor | ✅ (Fase 2: `compras_por_proveedor`) |
 
 ---
 
@@ -128,20 +134,20 @@ controlar inventario y plata), después lo multi-local, y al final lo que no es 
 - ✅ Reporte de ventas por categoría (Res/Pollo/Cerdo/Fruver) en `ServicioReportes` + pestaña en reportes.
 - ✅ Cambio de contraseña autoservicio.
 
-**Fase 2 — Proveedores y Compras** *(habilita media matriz de reportes)*
-- Maestro de proveedores (CRUD, contacto) — espejo del patrón de clientes.
-- Registro de compras: documento con proveedor, líneas producto/cantidad/costo, soporte de
-  compra "en canal" (res/cerdo) que luego se despieza vía movimientos de inventario.
-- La compra alimenta stock y costo; historial de compras por proveedor.
-- Reportes: compras por período y por proveedor.
+**Fase 2 — Proveedores y Compras** *(habilita media matriz de reportes)* ✅ **implementada** (rama `feature/fases-2-3-4-compras-cuentas`, 2026-07-02)
+- ✅ Maestro de proveedores (CRUD, contacto) — espejo del patrón de clientes.
+- ✅ Registro de compras: documento con proveedor, líneas producto/cantidad/costo, soporte de
+  compra "en canal" (res/cerdo) que luego se despieza con costeo por valor de venta.
+- ✅ La compra alimenta stock y costo; historial de compras por proveedor.
+- ✅ Reportes: compras por período y por proveedor.
 
-**Fase 3 — Cuentas por cobrar y por pagar** *(la plata pendiente)*
-- CxC: venta a crédito ("fiado") como medio de pago, saldo por cliente, abonos, reporte de pendientes. En carnicerías de barrio el fiado es operación diaria → prioridad alta.
-- CxP: compra a crédito sobre Fase 2, pagos parciales, reporte de obligaciones.
+**Fase 3 — Cuentas por cobrar y por pagar** *(la plata pendiente)* ✅ **implementada** (rama `feature/fases-2-3-4-compras-cuentas`, 2026-07-02)
+- ✅ CxC: venta a crédito ("fiado") como medio de pago, saldo por cliente, abonos, reporte de pendientes. En carnicerías de barrio el fiado es operación diaria → prioridad alta.
+- ✅ CxP: compra a crédito sobre Fase 2, pagos, reporte de obligaciones. (Saldo global por decisión del cliente, no por factura.)
 
-**Fase 4 — Gastos y reporte mensual consolidado**
-- Registro de gastos con clasificación (arriendo, servicios, transporte…), opcionalmente pagado desde caja (egreso de Fase 1).
-- Reporte mensual consolidado: ventas + compras + gastos + CxC + CxP en una vista/export.
+**Fase 4 — Gastos y reporte mensual consolidado** ✅ **implementada** (rama `feature/fases-2-3-4-compras-cuentas`, 2026-07-02)
+- ✅ Registro de gastos con clasificación (arriendo, servicios, transporte…), pagado desde caja (egreso de Fase 1) cuando es en efectivo.
+- ✅ Reporte mensual consolidado: ventas + compras + gastos + CxC + CxP en una vista.
 
 **Fase 5 — Multi-local** *(activar las costuras 📐)*
 - Implementar `sync_pdv` (outbox E8): identidad de local, transmisión/recepción.
