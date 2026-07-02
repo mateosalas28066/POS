@@ -111,6 +111,28 @@ class PantallaReportes(QWidget):
         tab_compras = QWidget(); lco = QVBoxLayout(tab_compras)
         lco.addLayout(kpis_compras); lco.addWidget(self._tabla_compras)
 
+        # Pestaña "Mensual"
+        hoy = QDate.currentDate()
+        self._combo_anio = QComboBox()
+        for anio in range(hoy.year() - 2, hoy.year() + 1):
+            self._combo_anio.addItem(str(anio), anio)
+        self._combo_anio.setCurrentIndex(self._combo_anio.count() - 1)
+        self._combo_mes = QComboBox()
+        for mes in range(1, 13):
+            self._combo_mes.addItem(str(mes), mes)
+        self._combo_mes.setCurrentIndex(hoy.month() - 1)
+        boton_mensual = QPushButton("Ver"); boton_mensual.setObjectName("primario")
+        boton_mensual.clicked.connect(self._consultar_mensual)
+        barra_mensual = QHBoxLayout()
+        barra_mensual.addWidget(QLabel("Año")); barra_mensual.addWidget(self._combo_anio)
+        barra_mensual.addWidget(QLabel("Mes")); barra_mensual.addWidget(self._combo_mes)
+        barra_mensual.addWidget(boton_mensual); barra_mensual.addStretch(1)
+        self._tabla_mensual = QTableWidget(0, 2)
+        self._tabla_mensual.setHorizontalHeaderLabels(["Concepto", "Valor"])
+        self._tabla_mensual.setEditTriggers(QTableWidget.NoEditTriggers)
+        tab_mensual = QWidget(); lm = QVBoxLayout(tab_mensual)
+        lm.addLayout(barra_mensual); lm.addWidget(self._tabla_mensual)
+
         tabs = QTabWidget()
         tabs.addTab(tab_ventas, "Ventas")
         tabs.addTab(tab_cat, "Por categoría")
@@ -118,6 +140,7 @@ class PantallaReportes(QWidget):
         tabs.addTab(tab_fac, "Por factura")
         tabs.addTab(tab_caj, "Por cajero")
         tabs.addTab(tab_compras, "Compras")
+        tabs.addTab(tab_mensual, "Mensual")
 
         layout = QVBoxLayout(self)
         layout.addLayout(barra)
@@ -215,6 +238,25 @@ class PantallaReportes(QWidget):
                 str(rp.num_compras), formato_moneda(rp.total)]
             for col, texto in enumerate(valores):
                 self._tabla_compras.setItem(fila, col, QTableWidgetItem(texto))
+
+    @Slot()
+    def _consultar_mensual(self) -> None:
+        anio = self._combo_anio.currentData()
+        mes = self._combo_mes.currentData()
+        rm = self._ctx.svc_reportes.mensual(anio, mes)
+        filas = [
+            ("Ventas", formato_moneda(rm.ventas)),
+            ("Compras", formato_moneda(rm.compras)),
+            ("Gastos", formato_moneda(rm.gastos)),
+            ("Saldo por cobrar", formato_moneda(rm.saldo_cxc)),
+            ("Saldo por pagar", formato_moneda(rm.saldo_cxp)),
+        ]
+        self._tabla_mensual.setRowCount(0)
+        for concepto, valor in filas:
+            fila = self._tabla_mensual.rowCount()
+            self._tabla_mensual.insertRow(fila)
+            self._tabla_mensual.setItem(fila, 0, QTableWidgetItem(concepto))
+            self._tabla_mensual.setItem(fila, 1, QTableWidgetItem(valor))
 
     def _mostrar_detalle_factura(self) -> None:
         fila = self._tabla_factura.currentRow()
