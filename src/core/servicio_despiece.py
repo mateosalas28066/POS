@@ -103,6 +103,7 @@ class ServicioDespiece:
                 ref=f"despiece:{guardado.id}",
             ))
             producto = self._productos.por_id(linea.producto_corte_id)
-            self._productos.actualizar(replace(producto, costo=linea.costo_unit))
+            if producto is not None:
+                self._productos.actualizar(replace(producto, costo=linea.costo_unit))
 
         return guardado
