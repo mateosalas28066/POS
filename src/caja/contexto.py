@@ -98,6 +98,8 @@ class ContextoApp:
         gastos = RepositorioGastosSQLite(conn)
         servicio_caja = ServicioCaja(sesiones, ventas, EFECTIVO_MEDIO_PAGO_ID,
                                      movimientos=movimientos_caja)
+        servicio_cxc = ServicioCuentasCobrar(cxc, ventas, servicio_caja)
+        servicio_cxp = ServicioCuentasPagar(cxp, compras, servicio_caja)
         return cls(
             conn=conn,
             repo_productos=productos, repo_categorias=categorias, repo_impuestos=impuestos,
@@ -111,7 +113,8 @@ class ContextoApp:
             svc_reportes=ServicioReportes(ventas, devoluciones, inventario, sesiones,
                                           EFECTIVO_MEDIO_PAGO_ID,
                                           movimientos_caja=movimientos_caja,
-                                          productos=productos, compras=compras),
+                                          productos=productos, compras=compras,
+                                          gastos=gastos, cxc=servicio_cxc, cxp=servicio_cxp),
             repo_usuarios=usuarios,
             svc_usuarios=ServicioUsuarios(usuarios),
             repo_promociones=promociones,
@@ -124,9 +127,9 @@ class ContextoApp:
             repo_compras=compras,
             svc_compras=ServicioCompras(compras, inventario, productos),
             repo_cxc=cxc,
-            svc_cxc=ServicioCuentasCobrar(cxc, ventas, servicio_caja),
+            svc_cxc=servicio_cxc,
             repo_cxp=cxp,
-            svc_cxp=ServicioCuentasPagar(cxp, compras, servicio_caja),
+            svc_cxp=servicio_cxp,
             repo_categorias_gasto=categorias_gasto,
             repo_gastos=gastos,
             svc_gastos=ServicioGastos(gastos, categorias_gasto, servicio_caja),

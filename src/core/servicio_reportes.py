@@ -8,9 +8,11 @@ from decimal import Decimal
 from core.calculos import calcular_arqueo
 from core.entidades import Arqueo, CajaSesion, MovimientoInventario, Venta
 from core.puertos import (
-    RepositorioCajaSesiones, RepositorioCompras, RepositorioDevoluciones, RepositorioInventario,
-    RepositorioMovimientosCaja, RepositorioProductos, RepositorioVentas,
+    RepositorioCajaSesiones, RepositorioCompras, RepositorioDevoluciones, RepositorioGastos,
+    RepositorioInventario, RepositorioMovimientosCaja, RepositorioProductos, RepositorioVentas,
 )
+from core.servicio_cuentas_cobrar import ServicioCuentasCobrar
+from core.servicio_cuentas_pagar import ServicioCuentasPagar
 
 CERO = Decimal("0")
 
@@ -92,13 +94,27 @@ class ReporteCierre:
     total_devoluciones: Decimal
 
 
+@dataclass(frozen=True)
+class ReporteMensual:
+    anio: int
+    mes: int
+    ventas: Decimal
+    compras: Decimal
+    gastos: Decimal
+    saldo_cxc: Decimal    # cartera por cobrar global (punto en el tiempo)
+    saldo_cxp: Decimal    # deuda a proveedores global
+
+
 class ServicioReportes:
     def __init__(self, ventas: RepositorioVentas, devoluciones: RepositorioDevoluciones,
                  inventario: RepositorioInventario, sesiones: RepositorioCajaSesiones,
                  efectivo_medio_pago_id: int = 1, *,
                  movimientos_caja: RepositorioMovimientosCaja | None = None,
                  productos: RepositorioProductos | None = None,
-                 compras: RepositorioCompras | None = None) -> None:
+                 compras: RepositorioCompras | None = None,
+                 gastos: RepositorioGastos | None = None,
+                 cxc: ServicioCuentasCobrar | None = None,
+                 cxp: ServicioCuentasPagar | None = None) -> None:
         self._ventas = ventas
         self._devoluciones = devoluciones
         self._inventario = inventario
@@ -107,6 +123,9 @@ class ServicioReportes:
         self._movimientos_caja = movimientos_caja
         self._productos = productos
         self._compras = compras
+        self._gastos = gastos
+        self._cxc = cxc
+        self._cxp = cxp
 
     def ventas(self, desde: datetime, hasta: datetime) -> ReporteVentas:
         vs = self._ventas.ventas_en(desde, hasta)
@@ -255,3 +274,16 @@ class ServicioReportes:
     def facturas(self, desde: datetime, hasta: datetime) -> tuple[Venta, ...]:
         vs = self._ventas.ventas_en(desde, hasta)
         return tuple(sorted(vs, key=lambda v: (v.fecha, v.id or 0)))
+
+    def mensual(self, anio: int, mes: int) -> ReporteMensual:
+        if self._gastos is None or self._cxc is None or self._cxp is None:
+            raise RuntimeError("ServicioReportes sin dependencias para el reporte mensual")
+        desde = datetime(anio, mes, 1)
+        hasta = datetime(anio + 1, 1, 1) if mes == 12 else datetime(anio, mes + 1, 1)
+        ventas = self.ventas(desde, hasta).total
+        compras = self.compras(desde, hasta).total
+        gastos = sum((g.monto for g in self._gastos.gastos_en(desde, hasta)), CERO)
+        saldo_cxc = sum(self._cxc.pendientes().values(), CERO)
+        saldo_cxp = sum(self._cxp.pendientes().values(), CERO)
+        return ReporteMensual(anio=anio, mes=mes, ventas=ventas, compras=compras,
+                              gastos=gastos, saldo_cxc=saldo_cxc, saldo_cxp=saldo_cxp)
