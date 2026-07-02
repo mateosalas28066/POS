@@ -14,7 +14,7 @@ from caja.contexto import ContextoApp  # noqa: E402
 from caja.ventana_principal import VentanaPrincipal  # noqa: E402
 
 
-def test_shell_tiene_seis_pantallas():
+def test_shell_registra_todas_las_pantallas():
     _app = QApplication.instance() or QApplication([])
     win = VentanaPrincipal(ContextoApp.crear(":memory:"))
     assert len(win._pantallas) == 9
