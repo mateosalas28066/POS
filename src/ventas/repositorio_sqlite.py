@@ -389,6 +389,13 @@ class RepositorioUsuariosSQLite:
         f = self._conn.execute("SELECT * FROM usuarios WHERE nombre = ?", (nombre,)).fetchone()
         return (_fila_a_usuario(f), f["hash_password"]) if f else None
 
+    def actualizar_password(self, usuario_id: int, hash_password: str) -> None:
+        cur = self._conn.execute(
+            "UPDATE usuarios SET hash_password = ? WHERE id = ?", (hash_password, usuario_id))
+        if cur.rowcount == 0:
+            raise LookupError(f"usuario inexistente: id={usuario_id}")
+        self._conn.commit()
+
     def listar(self) -> list[Usuario]:
         filas = self._conn.execute("SELECT * FROM usuarios ORDER BY id").fetchall()
         return [_fila_a_usuario(f) for f in filas]

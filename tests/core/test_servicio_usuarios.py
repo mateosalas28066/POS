@@ -3,7 +3,7 @@ from dataclasses import replace
 import pytest
 
 from core.entidades import Usuario
-from core.servicio_usuarios import ServicioUsuarios, UsuarioDuplicado
+from core.servicio_usuarios import CredencialInvalida, ServicioUsuarios, UsuarioDuplicado
 
 
 class FakeRepoUsuarios:
@@ -28,6 +28,11 @@ class FakeRepoUsuarios:
     def credencial(self, nombre):
         u = self.por_nombre(nombre)
         return (u, self._hashes[u.id]) if u else None
+
+    def actualizar_password(self, usuario_id, hash_password):
+        if usuario_id not in self._items:
+            raise LookupError(f"usuario inexistente: id={usuario_id}")
+        self._hashes[usuario_id] = hash_password
 
     def listar(self):
         return list(self._items.values())
@@ -68,3 +73,25 @@ def test_autenticar_password_mala_devuelve_none():
 def test_autenticar_usuario_inexistente_devuelve_none():
     s = ServicioUsuarios(FakeRepoUsuarios())
     assert s.autenticar("fantasma", "x") is None
+
+
+def test_cambiar_password_permite_autenticar_con_la_nueva():
+    s = ServicioUsuarios(FakeRepoUsuarios())
+    s.crear("ana", "clave1234")
+    s.cambiar_password("ana", "clave1234", "nueva5678")
+    assert s.autenticar("ana", "nueva5678") is not None
+    assert s.autenticar("ana", "clave1234") is None
+
+
+def test_cambiar_password_con_actual_incorrecta_falla():
+    s = ServicioUsuarios(FakeRepoUsuarios())
+    s.crear("ana", "clave1234")
+    with pytest.raises(CredencialInvalida):
+        s.cambiar_password("ana", "incorrecta", "nueva5678")
+
+
+def test_cambiar_password_exige_nueva_no_vacia():
+    s = ServicioUsuarios(FakeRepoUsuarios())
+    s.crear("ana", "clave1234")
+    with pytest.raises(ValueError):
+        s.cambiar_password("ana", "clave1234", "")

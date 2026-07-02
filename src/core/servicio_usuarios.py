@@ -10,6 +10,10 @@ class UsuarioDuplicado(ValueError):
     pass
 
 
+class CredencialInvalida(ValueError):
+    pass
+
+
 class ServicioUsuarios:
     def __init__(self, repo: RepositorioUsuarios) -> None:
         self._repo = repo
@@ -29,6 +33,15 @@ class ServicioUsuarios:
             return None
         usuario, hash_ = cred
         return usuario if verificar(password, hash_) else None
+
+    def cambiar_password(self, nombre: str, actual: str, nueva: str) -> None:
+        """Autoservicio: el usuario cambia su propia contraseña probando la actual."""
+        if not nueva:
+            raise ValueError("la contraseña nueva es obligatoria")
+        usuario = self.autenticar(nombre, actual)
+        if usuario is None:
+            raise CredencialInvalida("la contraseña actual no es correcta")
+        self._repo.actualizar_password(usuario.id, hash_password(nueva))
 
     def listar(self) -> list[Usuario]:
         return self._repo.listar()

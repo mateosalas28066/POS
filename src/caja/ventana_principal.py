@@ -5,10 +5,11 @@ from decimal import Decimal
 
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import (
-    QButtonGroup, QHBoxLayout, QMainWindow, QStackedWidget, QVBoxLayout, QWidget,
+    QButtonGroup, QDialog, QHBoxLayout, QMainWindow, QStackedWidget, QVBoxLayout, QWidget,
 )
 
 from caja.contexto import EFECTIVO_MEDIO_PAGO_ID, ContextoApp
+from caja.dialogos.dialogo_cambio_password import DialogoCambioPassword
 from caja.formato import formato_moneda
 from caja.pantalla_cierre import PantallaCierre
 from caja.pantalla_clientes import PantallaClientes
@@ -62,6 +63,11 @@ class VentanaPrincipal(QMainWindow):
             rail_layout.addWidget(boton)
             self._botones.append(boton)
         rail_layout.addStretch(1)
+        if ctx.usuario_actual is not None:
+            boton_pwd = BotonRail(icono("clientes"), "Cambiar mi contraseña")
+            boton_pwd.setCheckable(False)
+            boton_pwd.clicked.connect(self._cambiar_password)
+            rail_layout.addWidget(boton_pwd)
 
         central = QWidget(); central.setObjectName("fondo")
         layout = QHBoxLayout(central)
@@ -90,6 +96,13 @@ class VentanaPrincipal(QMainWindow):
         if hasattr(pantalla, "al_mostrar"):
             pantalla.al_mostrar()
         self._refrescar_estado()
+
+    @Slot()
+    def _cambiar_password(self) -> None:
+        dlg = DialogoCambioPassword(
+            self._ctx.svc_usuarios, self._ctx.usuario_actual.nombre, self)
+        if dlg.exec() == QDialog.Accepted:
+            self.statusBar().showMessage("Contraseña actualizada", 5000)
 
     @Slot()
     def _refrescar_estado(self) -> None:
