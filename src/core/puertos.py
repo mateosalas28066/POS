@@ -6,9 +6,9 @@ from decimal import Decimal
 from typing import Protocol
 
 from core.entidades import (
-    AbonoCliente, CajaSesion, Categoria, Cliente, Compra, Despiece, Devolucion, Impuesto,
-    LineaCompra, MedioPago, MovimientoCaja, MovimientoInventario, Pago, PagoProveedor, Producto,
-    Promocion, Proveedor, Usuario, Venta,
+    AbonoCliente, CajaSesion, Categoria, CategoriaGasto, Cliente, Compra, Despiece, Devolucion,
+    Gasto, Impuesto, LineaCompra, MedioPago, MovimientoCaja, MovimientoInventario, Pago,
+    PagoProveedor, Producto, Promocion, Proveedor, Usuario, Venta,
 )
 
 
@@ -132,3 +132,14 @@ class RepositorioPromociones(Protocol):
     def por_id(self, id: int) -> Promocion | None: ...
     def activa_por_producto(self, producto_id: int) -> Promocion | None: ...
     def listar(self) -> list[Promocion]: ...
+
+
+class RepositorioCategoriasGasto(Protocol):
+    def guardar(self, categoria: CategoriaGasto) -> CategoriaGasto: ...
+    def listar(self) -> list[CategoriaGasto]: ...
+    def actualizar(self, categoria: CategoriaGasto) -> CategoriaGasto: ...
+
+
+class RepositorioGastos(Protocol):
+    def guardar(self, gasto: Gasto) -> Gasto: ...
+    def gastos_en(self, desde: datetime, hasta: datetime) -> list[Gasto]: ...

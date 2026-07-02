@@ -13,6 +13,7 @@ from core.servicio_compras import ServicioCompras
 from core.servicio_cuentas_cobrar import ServicioCuentasCobrar
 from core.servicio_cuentas_pagar import ServicioCuentasPagar
 from core.servicio_despiece import ServicioDespiece
+from core.servicio_gastos import ServicioGastos
 from core.servicio_promociones import ServicioPromociones
 from core.servicio_proveedores import ServicioProveedores
 from core.servicio_reportes import ServicioReportes
@@ -25,10 +26,11 @@ from inventario.repositorio_sqlite import (
     RepositorioInventarioSQLite, RepositorioProductosSQLite, RepositorioPromocionesSQLite,
 )
 from ventas.repositorio_sqlite import (
-    RepositorioCajaSesionesSQLite, RepositorioClientesSQLite, RepositorioComprasSQLite,
-    RepositorioCuentasCobrarSQLite, RepositorioCuentasPagarSQLite, RepositorioDespiecesSQLite,
-    RepositorioDevolucionesSQLite, RepositorioMediosPagoSQLite, RepositorioMovimientosCajaSQLite,
-    RepositorioProveedoresSQLite, RepositorioUsuariosSQLite, RepositorioVentasSQLite,
+    RepositorioCajaSesionesSQLite, RepositorioCategoriasGastoSQLite, RepositorioClientesSQLite,
+    RepositorioComprasSQLite, RepositorioCuentasCobrarSQLite, RepositorioCuentasPagarSQLite,
+    RepositorioDespiecesSQLite, RepositorioDevolucionesSQLite, RepositorioGastosSQLite,
+    RepositorioMediosPagoSQLite, RepositorioMovimientosCajaSQLite, RepositorioProveedoresSQLite,
+    RepositorioUsuariosSQLite, RepositorioVentasSQLite,
 )
 
 EFECTIVO_MEDIO_PAGO_ID = 1
@@ -67,6 +69,9 @@ class ContextoApp:
     svc_cxc: ServicioCuentasCobrar = None  # type: ignore[assignment]
     repo_cxp: RepositorioCuentasPagarSQLite = None  # type: ignore[assignment]
     svc_cxp: ServicioCuentasPagar = None  # type: ignore[assignment]
+    repo_categorias_gasto: RepositorioCategoriasGastoSQLite = None  # type: ignore[assignment]
+    repo_gastos: RepositorioGastosSQLite = None  # type: ignore[assignment]
+    svc_gastos: ServicioGastos = None  # type: ignore[assignment]
     usuario_actual: Usuario | None = None
     formato_gs1: FormatoGS1 = FORMATO_PESO_DEFECTO
 
@@ -89,6 +94,8 @@ class ContextoApp:
         compras = RepositorioComprasSQLite(conn)
         cxc = RepositorioCuentasCobrarSQLite(conn)
         cxp = RepositorioCuentasPagarSQLite(conn)
+        categorias_gasto = RepositorioCategoriasGastoSQLite(conn)
+        gastos = RepositorioGastosSQLite(conn)
         servicio_caja = ServicioCaja(sesiones, ventas, EFECTIVO_MEDIO_PAGO_ID,
                                      movimientos=movimientos_caja)
         return cls(
@@ -120,6 +127,9 @@ class ContextoApp:
             svc_cxc=ServicioCuentasCobrar(cxc, ventas, servicio_caja),
             repo_cxp=cxp,
             svc_cxp=ServicioCuentasPagar(cxp, compras, servicio_caja),
+            repo_categorias_gasto=categorias_gasto,
+            repo_gastos=gastos,
+            svc_gastos=ServicioGastos(gastos, categorias_gasto, servicio_caja),
         )
 
     @classmethod

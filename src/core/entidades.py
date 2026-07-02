@@ -405,3 +405,29 @@ class PagoProveedor:
     def __post_init__(self) -> None:
         if self.monto <= CERO:
             raise ValueError("el monto del pago debe ser positivo")
+
+
+@dataclass(frozen=True)
+class CategoriaGasto:
+    nombre: str
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        if not self.nombre.strip():
+            raise ValueError("el nombre de la categoría es obligatorio")
+
+
+@dataclass(frozen=True)
+class Gasto:
+    fecha: datetime
+    categoria_gasto_id: int
+    monto: Decimal
+    descripcion: str | None = None
+    medio_pago_id: int = 1
+    caja_sesion_id: int | None = None
+    usuario_id: int | None = None
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.monto <= CERO:
+            raise ValueError("el monto del gasto debe ser positivo")
