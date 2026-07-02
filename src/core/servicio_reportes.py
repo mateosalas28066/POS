@@ -8,7 +8,7 @@ from decimal import Decimal
 from core.calculos import calcular_arqueo
 from core.entidades import Arqueo, CajaSesion, MovimientoInventario, Venta
 from core.puertos import (
-    RepositorioCajaSesiones, RepositorioDevoluciones, RepositorioInventario,
+    RepositorioCajaSesiones, RepositorioCompras, RepositorioDevoluciones, RepositorioInventario,
     RepositorioMovimientosCaja, RepositorioProductos, RepositorioVentas,
 )
 
@@ -53,6 +53,21 @@ class ReporteCategoria:
 
 
 @dataclass(frozen=True)
+class ReporteCompras:
+    desde: datetime
+    hasta: datetime
+    num_compras: int
+    total: Decimal
+
+
+@dataclass(frozen=True)
+class ReporteProveedor:
+    proveedor_id: int
+    num_compras: int
+    total: Decimal
+
+
+@dataclass(frozen=True)
 class MovimientoProducto:
     producto_id: int
     entradas: Decimal
@@ -82,7 +97,8 @@ class ServicioReportes:
                  inventario: RepositorioInventario, sesiones: RepositorioCajaSesiones,
                  efectivo_medio_pago_id: int = 1, *,
                  movimientos_caja: RepositorioMovimientosCaja | None = None,
-                 productos: RepositorioProductos | None = None) -> None:
+                 productos: RepositorioProductos | None = None,
+                 compras: RepositorioCompras | None = None) -> None:
         self._ventas = ventas
         self._devoluciones = devoluciones
         self._inventario = inventario
@@ -90,6 +106,7 @@ class ServicioReportes:
         self._efectivo_id = efectivo_medio_pago_id
         self._movimientos_caja = movimientos_caja
         self._productos = productos
+        self._compras = compras
 
     def ventas(self, desde: datetime, hasta: datetime) -> ReporteVentas:
         vs = self._ventas.ventas_en(desde, hasta)
@@ -215,6 +232,25 @@ class ServicioReportes:
             for cat, b in agg.items()]
         return tuple(sorted(reportes,
                             key=lambda r: (r.categoria_id is None, r.categoria_id or 0)))
+
+    def compras(self, desde: datetime, hasta: datetime) -> ReporteCompras:
+        if self._compras is None:
+            raise RuntimeError("ServicioReportes sin repositorio de compras")
+        cs = self._compras.compras_en(desde, hasta)
+        return ReporteCompras(desde=desde, hasta=hasta, num_compras=len(cs),
+                              total=sum((c.total for c in cs), CERO))
+
+    def compras_por_proveedor(self, desde: datetime, hasta: datetime) -> tuple[ReporteProveedor, ...]:
+        if self._compras is None:
+            raise RuntimeError("ServicioReportes sin repositorio de compras")
+        agg: dict[int, dict] = {}
+        for c in self._compras.compras_en(desde, hasta):
+            b = agg.setdefault(c.proveedor_id, {"num": 0, "total": CERO})
+            b["num"] += 1
+            b["total"] += c.total
+        reportes = [ReporteProveedor(proveedor_id=pid, num_compras=b["num"], total=b["total"])
+                    for pid, b in agg.items()]
+        return tuple(sorted(reportes, key=lambda r: r.proveedor_id))
 
     def facturas(self, desde: datetime, hasta: datetime) -> tuple[Venta, ...]:
         vs = self._ventas.ventas_en(desde, hasta)

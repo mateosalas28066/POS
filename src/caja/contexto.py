@@ -95,7 +95,7 @@ class ContextoApp:
             svc_reportes=ServicioReportes(ventas, devoluciones, inventario, sesiones,
                                           EFECTIVO_MEDIO_PAGO_ID,
                                           movimientos_caja=movimientos_caja,
-                                          productos=productos),
+                                          productos=productos, compras=compras),
             repo_usuarios=usuarios,
             svc_usuarios=ServicioUsuarios(usuarios),
             repo_promociones=promociones,
