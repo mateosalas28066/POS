@@ -11,6 +11,7 @@ from core.servicio_caja import ServicioCaja
 from core.servicio_clientes import ServicioClientes
 from core.servicio_compras import ServicioCompras
 from core.servicio_cuentas_cobrar import ServicioCuentasCobrar
+from core.servicio_cuentas_pagar import ServicioCuentasPagar
 from core.servicio_despiece import ServicioDespiece
 from core.servicio_promociones import ServicioPromociones
 from core.servicio_proveedores import ServicioProveedores
@@ -25,9 +26,9 @@ from inventario.repositorio_sqlite import (
 )
 from ventas.repositorio_sqlite import (
     RepositorioCajaSesionesSQLite, RepositorioClientesSQLite, RepositorioComprasSQLite,
-    RepositorioCuentasCobrarSQLite, RepositorioDespiecesSQLite, RepositorioDevolucionesSQLite,
-    RepositorioMediosPagoSQLite, RepositorioMovimientosCajaSQLite, RepositorioProveedoresSQLite,
-    RepositorioUsuariosSQLite, RepositorioVentasSQLite,
+    RepositorioCuentasCobrarSQLite, RepositorioCuentasPagarSQLite, RepositorioDespiecesSQLite,
+    RepositorioDevolucionesSQLite, RepositorioMediosPagoSQLite, RepositorioMovimientosCajaSQLite,
+    RepositorioProveedoresSQLite, RepositorioUsuariosSQLite, RepositorioVentasSQLite,
 )
 
 EFECTIVO_MEDIO_PAGO_ID = 1
@@ -64,6 +65,8 @@ class ContextoApp:
     svc_compras: ServicioCompras = None  # type: ignore[assignment]
     repo_cxc: RepositorioCuentasCobrarSQLite = None  # type: ignore[assignment]
     svc_cxc: ServicioCuentasCobrar = None  # type: ignore[assignment]
+    repo_cxp: RepositorioCuentasPagarSQLite = None  # type: ignore[assignment]
+    svc_cxp: ServicioCuentasPagar = None  # type: ignore[assignment]
     usuario_actual: Usuario | None = None
     formato_gs1: FormatoGS1 = FORMATO_PESO_DEFECTO
 
@@ -85,6 +88,7 @@ class ContextoApp:
         despieces = RepositorioDespiecesSQLite(conn)
         compras = RepositorioComprasSQLite(conn)
         cxc = RepositorioCuentasCobrarSQLite(conn)
+        cxp = RepositorioCuentasPagarSQLite(conn)
         servicio_caja = ServicioCaja(sesiones, ventas, EFECTIVO_MEDIO_PAGO_ID,
                                      movimientos=movimientos_caja)
         return cls(
@@ -114,6 +118,8 @@ class ContextoApp:
             svc_compras=ServicioCompras(compras, inventario, productos),
             repo_cxc=cxc,
             svc_cxc=ServicioCuentasCobrar(cxc, ventas, servicio_caja),
+            repo_cxp=cxp,
+            svc_cxp=ServicioCuentasPagar(cxp, compras, servicio_caja),
         )
 
     @classmethod

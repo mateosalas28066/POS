@@ -9,7 +9,8 @@ from decimal import Decimal
 
 from core.entidades import (
     AbonoCliente, CajaSesion, Cliente, Compra, Despiece, Devolucion, LineaCompra, LineaDespiece,
-    LineaDevolucion, LineaVenta, MedioPago, MovimientoCaja, Pago, Proveedor, Usuario, Venta,
+    LineaDevolucion, LineaVenta, MedioPago, MovimientoCaja, Pago, PagoProveedor, Proveedor,
+    Usuario, Venta,
 )
 
 
@@ -524,6 +525,14 @@ class RepositorioComprasSQLite:
             (proveedor_id,)).fetchall()
         return [self.por_id(f["id"]) for f in ids]
 
+    def credito_por_proveedor(self) -> dict[int, Decimal]:
+        filas = self._conn.execute(
+            "SELECT proveedor_id, total FROM compras WHERE estado = 'credito'").fetchall()
+        total: dict[int, Decimal] = {}
+        for f in filas:
+            total[f["proveedor_id"]] = total.get(f["proveedor_id"], Decimal("0")) + f["total"]
+        return total
+
 
 def _fila_a_linea_despiece(f: sqlite3.Row) -> LineaDespiece:
     return LineaDespiece(
@@ -609,4 +618,39 @@ class RepositorioCuentasCobrarSQLite:
         total: dict[int, Decimal] = {}
         for f in filas:
             total[f["cliente_id"]] = total.get(f["cliente_id"], Decimal("0")) + f["monto"]
+        return total
+
+
+def _fila_a_pago_proveedor(f: sqlite3.Row) -> PagoProveedor:
+    return PagoProveedor(
+        proveedor_id=f["proveedor_id"],
+        monto=f["monto"],
+        fecha=datetime.fromisoformat(f["fecha"]),
+        medio_pago_id=f["medio_pago_id"],
+        caja_sesion_id=f["caja_sesion_id"],
+        usuario_id=f["usuario_id"],
+        id=f["id"],
+    )
+
+
+class RepositorioCuentasPagarSQLite:
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def guardar(self, pago: PagoProveedor) -> PagoProveedor:
+        cur = self._conn.execute(
+            "INSERT INTO pagos_proveedor "
+            "(proveedor_id, monto, fecha, medio_pago_id, caja_sesion_id, usuario_id) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (pago.proveedor_id, pago.monto, pago.fecha.isoformat(), pago.medio_pago_id,
+             pago.caja_sesion_id, pago.usuario_id))
+        self._conn.commit()
+        return replace(pago, id=cur.lastrowid)
+
+    def pagos_por_proveedor(self) -> dict[int, Decimal]:
+        filas = self._conn.execute(
+            "SELECT proveedor_id, monto FROM pagos_proveedor").fetchall()
+        total: dict[int, Decimal] = {}
+        for f in filas:
+            total[f["proveedor_id"]] = total.get(f["proveedor_id"], Decimal("0")) + f["monto"]
         return total

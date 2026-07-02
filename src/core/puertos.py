@@ -7,8 +7,8 @@ from typing import Protocol
 
 from core.entidades import (
     AbonoCliente, CajaSesion, Categoria, Cliente, Compra, Despiece, Devolucion, Impuesto,
-    LineaCompra, MedioPago, MovimientoCaja, MovimientoInventario, Pago, Producto, Promocion,
-    Proveedor, Usuario, Venta,
+    LineaCompra, MedioPago, MovimientoCaja, MovimientoInventario, Pago, PagoProveedor, Producto,
+    Promocion, Proveedor, Usuario, Venta,
 )
 
 
@@ -59,6 +59,7 @@ class RepositorioCompras(Protocol):
     def por_id(self, id: int) -> Compra | None: ...
     def compras_en(self, desde: datetime, hasta: datetime) -> list[Compra]: ...
     def compras_de_proveedor(self, proveedor_id: int) -> list[Compra]: ...
+    def credito_por_proveedor(self) -> dict[int, Decimal]: ...
 
 
 class RepositorioDespieces(Protocol):
@@ -96,6 +97,11 @@ class RepositorioVentas(Protocol):
 class RepositorioCuentasCobrar(Protocol):
     def guardar(self, abono: AbonoCliente) -> AbonoCliente: ...
     def abonos_por_cliente(self) -> dict[int, Decimal]: ...
+
+
+class RepositorioCuentasPagar(Protocol):
+    def guardar(self, pago: PagoProveedor) -> PagoProveedor: ...
+    def pagos_por_proveedor(self) -> dict[int, Decimal]: ...
 
 
 class RepositorioCajaSesiones(Protocol):

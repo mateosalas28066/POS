@@ -390,3 +390,18 @@ class AbonoCliente:
     def __post_init__(self) -> None:
         if self.monto <= CERO:
             raise ValueError("el monto del abono debe ser positivo")
+
+
+@dataclass(frozen=True)
+class PagoProveedor:
+    proveedor_id: int
+    monto: Decimal
+    fecha: datetime
+    medio_pago_id: int
+    caja_sesion_id: int | None = None
+    usuario_id: int | None = None
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.monto <= CERO:
+            raise ValueError("el monto del pago debe ser positivo")
