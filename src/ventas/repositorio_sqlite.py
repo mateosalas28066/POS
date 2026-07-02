@@ -8,8 +8,8 @@ from datetime import datetime
 from decimal import Decimal
 
 from core.entidades import (
-    CajaSesion, Cliente, Devolucion, LineaDevolucion, LineaVenta, MedioPago,
-    MovimientoCaja, Pago, Proveedor, Usuario, Venta,
+    CajaSesion, Cliente, Despiece, Devolucion, LineaDespiece, LineaDevolucion, LineaVenta,
+    MedioPago, MovimientoCaja, Pago, Proveedor, Usuario, Venta,
 )
 
 
@@ -448,3 +448,55 @@ class RepositorioProveedoresSQLite:
             raise LookupError(f"proveedor inexistente: id={proveedor.id}")
         self._conn.commit()
         return proveedor
+
+
+def _fila_a_linea_despiece(f: sqlite3.Row) -> LineaDespiece:
+    return LineaDespiece(
+        producto_corte_id=f["producto_corte_id"],
+        peso=f["peso"],
+        costo_asignado=f["costo_asignado"],
+        costo_unit=f["costo_unit"],
+        despiece_id=f["despiece_id"],
+        id=f["id"],
+    )
+
+
+class RepositorioDespiecesSQLite:
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def guardar(self, despiece: Despiece) -> Despiece:
+        cur = self._conn.execute(
+            "INSERT INTO despieces "
+            "(producto_canal_id, peso_canal, costo_canal, fecha, usuario_id) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (despiece.producto_canal_id, despiece.peso_canal, despiece.costo_canal,
+             despiece.fecha.isoformat(), despiece.usuario_id))
+        despiece_id = cur.lastrowid
+        lineas_guardadas = []
+        for linea in despiece.lineas:
+            lcur = self._conn.execute(
+                "INSERT INTO despiece_lineas "
+                "(despiece_id, producto_corte_id, peso, costo_asignado, costo_unit) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (despiece_id, linea.producto_corte_id, linea.peso,
+                 linea.costo_asignado, linea.costo_unit))
+            lineas_guardadas.append(replace(linea, despiece_id=despiece_id, id=lcur.lastrowid))
+        self._conn.commit()
+        return replace(despiece, lineas=tuple(lineas_guardadas), id=despiece_id)
+
+    def por_id(self, id: int) -> Despiece | None:
+        fd = self._conn.execute("SELECT * FROM despieces WHERE id = ?", (id,)).fetchone()
+        if fd is None:
+            return None
+        filas = self._conn.execute(
+            "SELECT * FROM despiece_lineas WHERE despiece_id = ? ORDER BY id", (id,)).fetchall()
+        return Despiece(
+            producto_canal_id=fd["producto_canal_id"],
+            peso_canal=fd["peso_canal"],
+            costo_canal=fd["costo_canal"],
+            fecha=datetime.fromisoformat(fd["fecha"]),
+            lineas=tuple(_fila_a_linea_despiece(f) for f in filas),
+            usuario_id=fd["usuario_id"],
+            id=fd["id"],
+        )
