@@ -127,6 +127,41 @@ class Pago:
             raise ValueError("monto del pago debe ser positivo")
 
 
+ESTADOS_COMPRA = ("pagada", "credito")
+
+
+@dataclass(frozen=True)
+class LineaCompra:
+    producto_id: int
+    descripcion: str          # snapshot del nombre del producto al momento de comprar
+    cantidad: Decimal         # unidades o kg, siempre positiva
+    costo_unit: Decimal       # costo unitario de esta línea
+    subtotal: Decimal         # cantidad * costo_unit
+    compra_id: int | None = None
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.cantidad <= CERO:
+            raise ValueError("cantidad debe ser positiva")
+        if self.costo_unit < CERO or self.subtotal < CERO:
+            raise ValueError("valores monetarios de LineaCompra deben ser no negativos")
+
+
+@dataclass(frozen=True)
+class Compra:
+    proveedor_id: int
+    fecha: datetime
+    lineas: tuple[LineaCompra, ...]
+    total: Decimal
+    estado: str = "pagada"    # "pagada" | "credito"
+    usuario_id: int | None = None
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.estado not in ESTADOS_COMPRA:
+            raise ValueError(f"estado de compra inválido: {self.estado!r}")
+
+
 @dataclass(frozen=True)
 class LineaVenta:
     producto_id: int
