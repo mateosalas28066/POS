@@ -8,8 +8,8 @@ from datetime import datetime
 from decimal import Decimal
 
 from core.entidades import (
-    CajaSesion, Cliente, Despiece, Devolucion, LineaDespiece, LineaDevolucion, LineaVenta,
-    MedioPago, MovimientoCaja, Pago, Proveedor, Usuario, Venta,
+    CajaSesion, Cliente, Compra, Despiece, Devolucion, LineaCompra, LineaDespiece, LineaDevolucion,
+    LineaVenta, MedioPago, MovimientoCaja, Pago, Proveedor, Usuario, Venta,
 )
 
 
@@ -448,6 +448,70 @@ class RepositorioProveedoresSQLite:
             raise LookupError(f"proveedor inexistente: id={proveedor.id}")
         self._conn.commit()
         return proveedor
+
+
+def _fila_a_linea_compra(f: sqlite3.Row) -> LineaCompra:
+    return LineaCompra(
+        producto_id=f["producto_id"],
+        descripcion=f["descripcion"],
+        cantidad=f["cantidad"],
+        costo_unit=f["costo_unit"],
+        subtotal=f["subtotal"],
+        compra_id=f["compra_id"],
+        id=f["id"],
+    )
+
+
+class RepositorioComprasSQLite:
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def guardar(self, compra: Compra) -> Compra:
+        cur = self._conn.execute(
+            "INSERT INTO compras (proveedor_id, fecha, total, estado, usuario_id) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (compra.proveedor_id, compra.fecha.isoformat(), compra.total,
+             compra.estado, compra.usuario_id))
+        compra_id = cur.lastrowid
+        lineas_guardadas = []
+        for linea in compra.lineas:
+            lcur = self._conn.execute(
+                "INSERT INTO compra_lineas "
+                "(compra_id, producto_id, descripcion, cantidad, costo_unit, subtotal) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (compra_id, linea.producto_id, linea.descripcion, linea.cantidad,
+                 linea.costo_unit, linea.subtotal))
+            lineas_guardadas.append(replace(linea, compra_id=compra_id, id=lcur.lastrowid))
+        self._conn.commit()
+        return replace(compra, lineas=tuple(lineas_guardadas), id=compra_id)
+
+    def por_id(self, id: int) -> Compra | None:
+        fc = self._conn.execute("SELECT * FROM compras WHERE id = ?", (id,)).fetchone()
+        if fc is None:
+            return None
+        filas = self._conn.execute(
+            "SELECT * FROM compra_lineas WHERE compra_id = ? ORDER BY id", (id,)).fetchall()
+        return Compra(
+            proveedor_id=fc["proveedor_id"],
+            fecha=datetime.fromisoformat(fc["fecha"]),
+            lineas=tuple(_fila_a_linea_compra(f) for f in filas),
+            total=fc["total"],
+            estado=fc["estado"],
+            usuario_id=fc["usuario_id"],
+            id=fc["id"],
+        )
+
+    def compras_en(self, desde: datetime, hasta: datetime) -> list[Compra]:
+        ids = self._conn.execute(
+            "SELECT id FROM compras WHERE fecha >= ? AND fecha < ? ORDER BY id",
+            (desde.isoformat(), hasta.isoformat())).fetchall()
+        return [self.por_id(f["id"]) for f in ids]
+
+    def compras_de_proveedor(self, proveedor_id: int) -> list[Compra]:
+        ids = self._conn.execute(
+            "SELECT id FROM compras WHERE proveedor_id = ? ORDER BY id",
+            (proveedor_id,)).fetchall()
+        return [self.por_id(f["id"]) for f in ids]
 
 
 def _fila_a_linea_despiece(f: sqlite3.Row) -> LineaDespiece:

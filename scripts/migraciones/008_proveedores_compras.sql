@@ -27,3 +27,23 @@ CREATE TABLE IF NOT EXISTS despiece_lineas (
     costo_asignado   DECIMAL NOT NULL,
     costo_unit       DECIMAL NOT NULL
 );
+
+-- Compras: encabezado + líneas. estado 'pagada'|'credito' (crédito lo lee CxP en Fase 3).
+CREATE TABLE IF NOT EXISTS compras (
+    id           INTEGER PRIMARY KEY,
+    proveedor_id INTEGER NOT NULL REFERENCES proveedores(id),
+    fecha        TEXT NOT NULL,
+    total        DECIMAL NOT NULL,
+    estado       TEXT NOT NULL DEFAULT 'pagada',
+    usuario_id   INTEGER REFERENCES usuarios(id)
+);
+
+CREATE TABLE IF NOT EXISTS compra_lineas (
+    id          INTEGER PRIMARY KEY,
+    compra_id   INTEGER NOT NULL REFERENCES compras(id),
+    producto_id INTEGER NOT NULL REFERENCES productos(id),
+    descripcion TEXT NOT NULL,
+    cantidad    DECIMAL NOT NULL,
+    costo_unit  DECIMAL NOT NULL,
+    subtotal    DECIMAL NOT NULL
+);
