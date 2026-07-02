@@ -14,11 +14,11 @@ from caja.contexto import ContextoApp  # noqa: E402
 from caja.ventana_principal import VentanaPrincipal  # noqa: E402
 
 
-def test_shell_tiene_seis_pantallas():
+def test_shell_registra_todas_las_pantallas():
     _app = QApplication.instance() or QApplication([])
     win = VentanaPrincipal(ContextoApp.crear(":memory:"))
-    assert len(win._pantallas) == 6
-    assert win._stack.count() == 6
+    assert len(win._pantallas) == 11
+    assert win._stack.count() == 11
 
 
 def test_navegar_cambia_pantalla_activa():

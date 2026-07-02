@@ -122,6 +122,41 @@ def test_descuento_manual_visible_solo_para_admin():
     assert win_cajero._descuento_manual.isVisibleTo(win_cajero) is False
 
 
+def test_grid_5_columnas_y_no_deja_huecos_al_filtrar():
+    _app = QApplication.instance() or QApplication([])
+    win = PantallaVenta(_ctx())
+    win.al_mostrar()
+    from caja.pantalla_venta import _COLS_GRID
+    assert _COLS_GRID == 5
+
+    win._busqueda.setText("arroz")
+    win._aplicar_filtro()
+    visibles = [t for t in win._tarjetas if t.isVisibleTo(win)]
+    assert 1 <= len(visibles) < len(win._tarjetas)
+    # las visibles deben quedar contiguas desde (0, 0), sin huecos
+    for i, t in enumerate(visibles):
+        idx = win._grid.indexOf(t)
+        assert idx != -1
+        fila, col, _, _ = win._grid.getItemPosition(idx)
+        assert (fila, col) == (i // _COLS_GRID, i % _COLS_GRID)
+
+
+def test_producto_sin_stock_aparece_agotado():
+    _app = QApplication.instance() or QApplication([])
+    ctx = _ctx()
+    win = PantallaVenta(ctx)
+    win.al_mostrar()
+    producto = ctx.repo_productos.por_codigo("7700006")
+    ctx.repo_inventario.registrar(__import__("core.entidades", fromlist=["MovimientoInventario"])
+                                   .MovimientoInventario(
+                                       producto_id=producto.id, tipo="salida",
+                                       cantidad=ctx.repo_inventario.stock_de(producto.id),
+                                       fecha=datetime.now()))
+    win._construir_grid()
+    tarjeta = next(t for t in win._tarjetas if t._producto.id == producto.id)
+    assert tarjeta.property("agotado") is True
+
+
 def test_default_es_consumidor_final():
     _app = QApplication.instance() or QApplication([])
     ctx = _ctx()

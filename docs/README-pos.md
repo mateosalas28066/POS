@@ -11,11 +11,11 @@ y facturación electrónica DIAN mañana.
 
 | Carpeta | Rol | Relación con Siesa POS/PDV |
 |---|---|---|
-| `src/core/` | Dominio puro: entidades, servicios (ServicioVenta, ServicioCaja, ServicioClientes), reglas (impuestos, precio×peso, arqueo), puertos, armado de factura DIAN. Sin Qt ni SQLite. | Lógica de negocio que en Siesa está repartida entre PDV y ERP |
+| `src/core/` | Dominio puro: entidades, servicios (ServicioVenta, ServicioCaja, ServicioClientes, ServicioUsuarios, ServicioReportes), reglas (impuestos, precio×peso, arqueo, descuento, permisos por rol, hash de contraseñas), puertos, armado de factura DIAN. Sin Qt ni SQLite. | Lógica de negocio que en Siesa está repartida entre PDV y ERP |
 | `src/core/perifericos/` | Puerto `LectorPeso` + adaptadores `BalanzaSerial`, `CodigoPesoGS1`, `IngresoManual`. | Balanzas / códigos de peso del PDV (fruver y carne) |
 | `src/inventario/` | Productos, stock, movimientos (adaptadores SQLite). | Módulo Inventarios de Siesa |
 | `src/ventas/` | Persistencia no-UI del ciclo venta/caja: clientes, medios de pago, ventas, pagos, sesiones de caja (adaptadores SQLite). | Tablas transaccionales del PDV |
-| `src/caja/` | UI Qt: venta, clientes, cobro, devoluciones, cierre/arqueo. | Capa de caja/PDV (terminal) de Siesa |
+| `src/caja/` | UI Qt: login, venta (cliente + descuento), clientes, cobro, devoluciones, cierre/arqueo, reportes (período/factura/cajero), usuarios/roles. | Capa de caja/PDV (terminal) de Siesa |
 | `src/facturacion_dian/` | Puerto `EmisorDIAN` + adaptadores (stub hoy, proveedor después). | Capa de facturación electrónica / e-Invoicing |
 | `src/sync_pdv/` | Patrón outbox para multi-local (diseñado, no implementado a fondo). | Transmisión/recepción PDV almacén de Siesa |
 | `scripts/` | Migraciones, seed de datos, utilidades CLI. | — |
@@ -49,10 +49,14 @@ y facturación electrónica DIAN mañana.
 | RPTFAC | Reportes por factura (listado + detalle) y por cajero (rango y sesión) sobre `ServicioReportes` (`facturas`, `por_cajero`, `por_cajero_de_sesion`) + pestañas "Por factura" y "Por cajero" en `PantallaReportes` ([spec](superpowers/specs/2026-07-01-reportes-factura-cajero-design.md) · [plan](superpowers/plans/2026-07-01-reportes-factura-cajero.md)) | ✅ implementado |
 | PROMO | Promociones por producto (precio fijo o %, duración por tiempo/unidades/manual): dominio `Promocion` + reglas `promo_vigente/precio_con_promo/consumir_unidades`, `ServicioPromociones` (una activa por producto), `RepositorioPromocionesSQLite` (migración 006), `ServicioVenta` aplica la promo antes del descuento del cliente y consume unidades al registrar, `DialogoPromociones` desde inventario y marca visual en la venta ([spec](superpowers/specs/2026-07-01-promociones-conteo-caja-design.md) · [plan](superpowers/plans/2026-07-01-promociones-conteo-caja.md)) | ✅ implementado |
 | CONTEO | Conteo de efectivo por denominaciones (COP) en el cierre: `caja/conteo.py` (`DENOMINACIONES` + `total_conteo`), `DialogoConteoEfectivo` y botón "Contar efectivo" que rellena el monto contado (ayuda opcional, no bloquea el cierre) ([spec](superpowers/specs/2026-07-01-promociones-conteo-caja-design.md) · [plan](superpowers/plans/2026-07-01-promociones-conteo-caja.md)) | ✅ implementado |
+| FASE1 | Core de caja (roadmap cliente): movimientos manuales de efectivo (`MovimientoCaja`, migración 007, `ServicioCaja.registrar_movimiento`, arqueo con otros ingresos/egresos, `DialogoMovimientoCaja` en cierre), reporte de ventas por categoría (`ServicioReportes.por_categoria` + pestaña "Por categoría"), cambio de contraseña autoservicio (`cambiar_password` + `DialogoCambioPassword` desde el rail) ([análisis](analisis-requerimientos-cliente.md)) | ✅ implementado |
+| FASE2 | Proveedores y Compras: maestro `Proveedor` + `ServicioProveedores` + `PantallaProveedores`; `Compra`/`LineaCompra` + `ServicioCompras` (alimenta stock y actualiza costo); despiece con costeo por valor de venta (`ServicioDespiece` + `prorratear_costeo_despiece`, prorrateo del costo del canal entre cortes, fallback por peso); migración 008; `PantallaCompras`/`PantallaDespiece` + pestaña "Compras" en reportes (`ServicioReportes.compras`/`compras_por_proveedor`) ([spec+plan](superpowers/specs/2026-07-01-fases-2-3-4-compras-cuentas-gastos-design.md)) | ✅ implementado |
+| FASE3 | Cuentas por cobrar (fiado) y por pagar: saldo global por cliente/proveedor (Σ deuda − Σ abonos/pagos); `ServicioCuentasCobrar` (`AbonoCliente`, medio 4 Crédito/Fiado) y `ServicioCuentasPagar` (`PagoProveedor`, sobre compras a crédito); todo efectivo pasa por caja (abono→ingreso, pago→egreso); migración 009; `PantallaCuentas` (2 pestañas) + `DialogoAbonoPago` + medio Fiado en el cobro solo para cliente identificado ([spec+plan](superpowers/specs/2026-07-01-fases-2-3-4-compras-cuentas-gastos-design.md)) | ✅ implementado |
+| FASE4 | Gastos y reporte mensual consolidado: `CategoriaGasto` (lista fija administrable con seed) + `Gasto` + `ServicioGastos` (efectivo→egreso de caja); migración 010; `PantallaGastos` (registrar + listar + administrar categorías solo admin); reporte mensual `ServicioReportes.mensual` (ventas/compras/gastos/saldos CxC/CxP) + pestaña "Mensual" ([spec+plan](superpowers/specs/2026-07-01-fases-2-3-4-compras-cuentas-gastos-design.md)) | ✅ implementado |
 | E8 | Sync offline/outbox | pendiente |
 | DIAN | Facturación electrónica (stub → proveedor) | pendiente |
 
-Suite: **318 passed** (`python -m pytest -q`, 2026-07-01).
+Suite: **395 passed** (`python -m pytest -q`, 2026-07-02).
 
 **Seguridad:** `caja.bootstrap.sembrar_admin` siembra un usuario `admin`/`admin1234` si no
 hay usuarios en la base. Esa contraseña por defecto debe cambiarse antes de desplegar en

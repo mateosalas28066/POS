@@ -8,8 +8,11 @@ from decimal import Decimal
 from core.calculos import calcular_arqueo
 from core.entidades import Arqueo, CajaSesion, MovimientoInventario, Venta
 from core.puertos import (
-    RepositorioCajaSesiones, RepositorioDevoluciones, RepositorioInventario, RepositorioVentas,
+    RepositorioCajaSesiones, RepositorioCompras, RepositorioDevoluciones, RepositorioGastos,
+    RepositorioInventario, RepositorioMovimientosCaja, RepositorioProductos, RepositorioVentas,
 )
+from core.servicio_cuentas_cobrar import ServicioCuentasCobrar
+from core.servicio_cuentas_pagar import ServicioCuentasPagar
 
 CERO = Decimal("0")
 
@@ -43,6 +46,30 @@ class ReporteCajero:
 
 
 @dataclass(frozen=True)
+class ReporteCategoria:
+    categoria_id: int | None
+    total: Decimal               # Σ subtotales de líneas vendidas (descuento ya aplicado)
+    total_impuestos: Decimal
+    total_devoluciones: Decimal
+    neto: Decimal                # total − devoluciones
+
+
+@dataclass(frozen=True)
+class ReporteCompras:
+    desde: datetime
+    hasta: datetime
+    num_compras: int
+    total: Decimal
+
+
+@dataclass(frozen=True)
+class ReporteProveedor:
+    proveedor_id: int
+    num_compras: int
+    total: Decimal
+
+
+@dataclass(frozen=True)
 class MovimientoProducto:
     producto_id: int
     entradas: Decimal
@@ -67,15 +94,38 @@ class ReporteCierre:
     total_devoluciones: Decimal
 
 
+@dataclass(frozen=True)
+class ReporteMensual:
+    anio: int
+    mes: int
+    ventas: Decimal
+    compras: Decimal
+    gastos: Decimal
+    saldo_cxc: Decimal    # cartera por cobrar global (punto en el tiempo)
+    saldo_cxp: Decimal    # deuda a proveedores global
+
+
 class ServicioReportes:
     def __init__(self, ventas: RepositorioVentas, devoluciones: RepositorioDevoluciones,
                  inventario: RepositorioInventario, sesiones: RepositorioCajaSesiones,
-                 efectivo_medio_pago_id: int = 1) -> None:
+                 efectivo_medio_pago_id: int = 1, *,
+                 movimientos_caja: RepositorioMovimientosCaja | None = None,
+                 productos: RepositorioProductos | None = None,
+                 compras: RepositorioCompras | None = None,
+                 gastos: RepositorioGastos | None = None,
+                 cxc: ServicioCuentasCobrar | None = None,
+                 cxp: ServicioCuentasPagar | None = None) -> None:
         self._ventas = ventas
         self._devoluciones = devoluciones
         self._inventario = inventario
         self._sesiones = sesiones
         self._efectivo_id = efectivo_medio_pago_id
+        self._movimientos_caja = movimientos_caja
+        self._productos = productos
+        self._compras = compras
+        self._gastos = gastos
+        self._cxc = cxc
+        self._cxp = cxp
 
     def ventas(self, desde: datetime, hasta: datetime) -> ReporteVentas:
         vs = self._ventas.ventas_en(desde, hasta)
@@ -121,9 +171,12 @@ class ServicioReportes:
             raise SesionNoEncontrada(f"sesion de caja inexistente: {sesion_id}")
         por_medio = self._ventas.totales_por_medio(sesion_id)
         efectivo = por_medio.get(self._efectivo_id, CERO)
-        esperado = sesion.monto_inicial + efectivo
+        movs = self._movimientos_caja.de_sesion(sesion_id) if self._movimientos_caja else []
+        ingresos = sum((m.monto for m in movs if m.tipo == "ingreso"), CERO)
+        egresos = sum((m.monto for m in movs if m.tipo == "egreso"), CERO)
+        esperado = sesion.monto_inicial + efectivo + ingresos - egresos
         contado = sesion.monto_contado if sesion.monto_contado is not None else esperado
-        arqueo = calcular_arqueo(sesion.monto_inicial, efectivo, contado)
+        arqueo = calcular_arqueo(sesion.monto_inicial, efectivo, contado, ingresos, egresos)
         num_ventas = len(self._ventas.ventas_de_sesion(sesion_id))
         total_devoluciones = sum((d.total for d in self._devoluciones.de_sesion(sesion_id)), CERO)
         return ReporteCierre(sesion=sesion, arqueo=arqueo, por_medio=por_medio,
@@ -175,6 +228,62 @@ class ServicioReportes:
         return tuple(sorted(reportes,
                             key=lambda r: (r.usuario_id is None, r.usuario_id or 0)))
 
+    def por_categoria(self, desde: datetime, hasta: datetime) -> tuple[ReporteCategoria, ...]:
+        if self._productos is None:
+            raise RuntimeError("ServicioReportes sin repositorio de productos")
+        categoria_de = {p.id: p.categoria_id for p in self._productos.listar()}
+        agg: dict[int | None, dict] = {}
+
+        def bucket(cat: int | None) -> dict:
+            return agg.setdefault(cat, {"total": CERO, "imp": CERO, "dev": CERO})
+
+        for v in self._ventas.ventas_en(desde, hasta):
+            for ln in v.lineas:
+                b = bucket(categoria_de.get(ln.producto_id))
+                b["total"] += ln.subtotal
+                b["imp"] += ln.impuesto
+        for d in self._devoluciones.devoluciones_en(desde, hasta):
+            for ln in d.lineas:
+                bucket(categoria_de.get(ln.producto_id))["dev"] += ln.subtotal
+        reportes = [
+            ReporteCategoria(categoria_id=cat, total=b["total"], total_impuestos=b["imp"],
+                             total_devoluciones=b["dev"], neto=b["total"] - b["dev"])
+            for cat, b in agg.items()]
+        return tuple(sorted(reportes,
+                            key=lambda r: (r.categoria_id is None, r.categoria_id or 0)))
+
+    def compras(self, desde: datetime, hasta: datetime) -> ReporteCompras:
+        if self._compras is None:
+            raise RuntimeError("ServicioReportes sin repositorio de compras")
+        cs = self._compras.compras_en(desde, hasta)
+        return ReporteCompras(desde=desde, hasta=hasta, num_compras=len(cs),
+                              total=sum((c.total for c in cs), CERO))
+
+    def compras_por_proveedor(self, desde: datetime, hasta: datetime) -> tuple[ReporteProveedor, ...]:
+        if self._compras is None:
+            raise RuntimeError("ServicioReportes sin repositorio de compras")
+        agg: dict[int, dict] = {}
+        for c in self._compras.compras_en(desde, hasta):
+            b = agg.setdefault(c.proveedor_id, {"num": 0, "total": CERO})
+            b["num"] += 1
+            b["total"] += c.total
+        reportes = [ReporteProveedor(proveedor_id=pid, num_compras=b["num"], total=b["total"])
+                    for pid, b in agg.items()]
+        return tuple(sorted(reportes, key=lambda r: r.proveedor_id))
+
     def facturas(self, desde: datetime, hasta: datetime) -> tuple[Venta, ...]:
         vs = self._ventas.ventas_en(desde, hasta)
         return tuple(sorted(vs, key=lambda v: (v.fecha, v.id or 0)))
+
+    def mensual(self, anio: int, mes: int) -> ReporteMensual:
+        if self._gastos is None or self._cxc is None or self._cxp is None:
+            raise RuntimeError("ServicioReportes sin dependencias para el reporte mensual")
+        desde = datetime(anio, mes, 1)
+        hasta = datetime(anio + 1, 1, 1) if mes == 12 else datetime(anio, mes + 1, 1)
+        ventas = self.ventas(desde, hasta).total
+        compras = self.compras(desde, hasta).total
+        gastos = sum((g.monto for g in self._gastos.gastos_en(desde, hasta)), CERO)
+        saldo_cxc = sum(self._cxc.pendientes().values(), CERO)
+        saldo_cxp = sum(self._cxp.pendientes().values(), CERO)
+        return ReporteMensual(anio=anio, mes=mes, ventas=ventas, compras=compras,
+                              gastos=gastos, saldo_cxc=saldo_cxc, saldo_cxp=saldo_cxp)

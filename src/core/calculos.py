@@ -47,15 +47,19 @@ def calcular_vuelto(total: Decimal, recibido: Decimal) -> Decimal:
 
 
 def calcular_arqueo(monto_inicial: Decimal, efectivo_ventas: Decimal,
-                    monto_contado: Decimal) -> Arqueo:
-    """Calcula el arqueo de caja: efectivo contado vs esperado."""
-    if monto_inicial < CERO or efectivo_ventas < CERO or monto_contado < CERO:
+                    monto_contado: Decimal, otros_ingresos: Decimal = CERO,
+                    otros_egresos: Decimal = CERO) -> Arqueo:
+    """Calcula el arqueo de caja: efectivo contado vs esperado (ventas ± movimientos manuales)."""
+    if (monto_inicial < CERO or efectivo_ventas < CERO or monto_contado < CERO
+            or otros_ingresos < CERO or otros_egresos < CERO):
         raise ValueError("los montos del arqueo deben ser no negativos")
-    esperado = monto_inicial + efectivo_ventas
+    esperado = monto_inicial + efectivo_ventas + otros_ingresos - otros_egresos
     return Arqueo(
         monto_inicial=monto_inicial,
         efectivo_ventas=efectivo_ventas,
         esperado=esperado,
         contado=monto_contado,
         diferencia=monto_contado - esperado,
+        otros_ingresos=otros_ingresos,
+        otros_egresos=otros_egresos,
     )

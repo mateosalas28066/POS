@@ -106,6 +106,15 @@ class Cliente:
 
 
 @dataclass(frozen=True)
+class Proveedor:
+    identificacion: str
+    nombre: str
+    contacto: str | None = None
+    bloqueado_edicion: bool = False
+    id: int | None = None
+
+
+@dataclass(frozen=True)
 class Pago:
     medio_pago_id: int
     monto: Decimal
@@ -116,6 +125,41 @@ class Pago:
     def __post_init__(self) -> None:
         if self.monto <= CERO:
             raise ValueError("monto del pago debe ser positivo")
+
+
+ESTADOS_COMPRA = ("pagada", "credito")
+
+
+@dataclass(frozen=True)
+class LineaCompra:
+    producto_id: int
+    descripcion: str          # snapshot del nombre del producto al momento de comprar
+    cantidad: Decimal         # unidades o kg, siempre positiva
+    costo_unit: Decimal       # costo unitario de esta línea
+    subtotal: Decimal         # cantidad * costo_unit
+    compra_id: int | None = None
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.cantidad <= CERO:
+            raise ValueError("cantidad debe ser positiva")
+        if self.costo_unit < CERO or self.subtotal < CERO:
+            raise ValueError("valores monetarios de LineaCompra deben ser no negativos")
+
+
+@dataclass(frozen=True)
+class Compra:
+    proveedor_id: int
+    fecha: datetime
+    lineas: tuple[LineaCompra, ...]
+    total: Decimal
+    estado: str = "pagada"    # "pagada" | "credito"
+    usuario_id: int | None = None
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.estado not in ESTADOS_COMPRA:
+            raise ValueError(f"estado de compra inválido: {self.estado!r}")
 
 
 @dataclass(frozen=True)
@@ -186,6 +230,31 @@ class Arqueo:
     esperado: Decimal
     contado: Decimal
     diferencia: Decimal
+    otros_ingresos: Decimal = CERO   # ingresos manuales de efectivo (base extra, etc.)
+    otros_egresos: Decimal = CERO    # egresos manuales (retiros, pagos desde caja)
+
+
+TIPOS_MOVIMIENTO_CAJA = ("ingreso", "egreso")
+
+
+@dataclass(frozen=True)
+class MovimientoCaja:
+    """Ingreso/egreso manual de efectivo dentro de una sesión de caja."""
+    caja_sesion_id: int
+    tipo: str          # "ingreso" o "egreso"
+    monto: Decimal     # siempre positivo; el signo lo da el tipo
+    motivo: str
+    fecha: datetime
+    usuario_id: int | None = None
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.tipo not in TIPOS_MOVIMIENTO_CAJA:
+            raise ValueError(f"tipo de movimiento inválido: {self.tipo!r}")
+        if self.monto <= CERO:
+            raise ValueError("monto debe ser positivo")
+        if not self.motivo.strip():
+            raise ValueError("el motivo es obligatorio")
 
 
 ESTADOS_DEVOLUCION = ("emitida",)
@@ -237,6 +306,39 @@ class Devolucion:
             raise ValueError(f"estado de devolución inválido: {self.estado!r}")
 
 
+@dataclass(frozen=True)
+class LineaDespiece:
+    producto_corte_id: int
+    peso: Decimal              # kg despiezados de este corte, siempre positivo
+    costo_asignado: Decimal    # porción del costo_canal asignada a este corte
+    costo_unit: Decimal        # costo_asignado / peso
+    despiece_id: int | None = None
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.peso <= CERO:
+            raise ValueError("peso debe ser positivo")
+        if self.costo_asignado < CERO or self.costo_unit < CERO:
+            raise ValueError("valores monetarios de LineaDespiece deben ser no negativos")
+
+
+@dataclass(frozen=True)
+class Despiece:
+    producto_canal_id: int
+    peso_canal: Decimal        # kg del canal que se despiezan (entrada consumida)
+    costo_canal: Decimal       # costo total a repartir entre los cortes
+    fecha: datetime
+    lineas: tuple[LineaDespiece, ...]
+    usuario_id: int | None = None
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.peso_canal <= CERO:
+            raise ValueError("peso_canal debe ser positivo")
+        if self.costo_canal < CERO:
+            raise ValueError("costo_canal no puede ser negativo")
+
+
 TIPOS_VALOR_PROMO = ("precio_fijo", "porcentaje")
 TIPOS_DURACION_PROMO = ("tiempo", "unidades", "manual")
 
@@ -273,3 +375,59 @@ class Promocion:
                 raise ValueError("promo por unidades requiere unidades_limite > 0")
             if self.unidades_restantes is None:
                 object.__setattr__(self, "unidades_restantes", self.unidades_limite)
+
+
+@dataclass(frozen=True)
+class AbonoCliente:
+    cliente_id: int
+    monto: Decimal
+    fecha: datetime
+    medio_pago_id: int
+    caja_sesion_id: int | None = None
+    usuario_id: int | None = None
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.monto <= CERO:
+            raise ValueError("el monto del abono debe ser positivo")
+
+
+@dataclass(frozen=True)
+class PagoProveedor:
+    proveedor_id: int
+    monto: Decimal
+    fecha: datetime
+    medio_pago_id: int
+    caja_sesion_id: int | None = None
+    usuario_id: int | None = None
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.monto <= CERO:
+            raise ValueError("el monto del pago debe ser positivo")
+
+
+@dataclass(frozen=True)
+class CategoriaGasto:
+    nombre: str
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        if not self.nombre.strip():
+            raise ValueError("el nombre de la categoría es obligatorio")
+
+
+@dataclass(frozen=True)
+class Gasto:
+    fecha: datetime
+    categoria_gasto_id: int
+    monto: Decimal
+    descripcion: str | None = None
+    medio_pago_id: int = 1
+    caja_sesion_id: int | None = None
+    usuario_id: int | None = None
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.monto <= CERO:
+            raise ValueError("el monto del gasto debe ser positivo")

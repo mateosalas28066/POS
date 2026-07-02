@@ -6,16 +6,17 @@ from decimal import Decimal
 
 from PySide6.QtCore import Signal, Slot
 from PySide6.QtWidgets import (
-    QDialog, QDoubleSpinBox, QGridLayout, QHBoxLayout, QLabel, QMessageBox,
+    QDialog, QGridLayout, QHBoxLayout, QLabel, QMessageBox,
     QPushButton, QVBoxLayout, QWidget,
 )
 
 from caja.contexto import ContextoApp
 from caja.dialogos.dialogo_conteo import DialogoConteoEfectivo
+from caja.dialogos.dialogo_movimiento_caja import DialogoMovimientoCaja
 from caja.formato import formato_moneda
-from caja.widgets import TarjetaKpi
+from caja.widgets import SpinMoneda, TarjetaKpi
 from core.entidades import CajaSesion
-from core.servicio_caja import CajaNoAbierta, CajaYaAbierta
+from core.servicio_caja import CajaNoAbierta, CajaYaAbierta, EfectivoInsuficiente
 
 CERO = Decimal("0")
 
@@ -27,11 +28,10 @@ class PantallaCierre(QWidget):
         super().__init__()
         self._ctx = ctx
         self._layout = QVBoxLayout(self)
+        self._desglose_conteo: dict[int, int] | None = None
         # widgets persistentes para test/acceso
-        self._monto_inicial = QDoubleSpinBox()
-        self._monto_inicial.setMaximum(99_999_999); self._monto_inicial.setDecimals(0)
-        self._monto_contado = QDoubleSpinBox()
-        self._monto_contado.setMaximum(99_999_999); self._monto_contado.setDecimals(0)
+        self._monto_inicial = SpinMoneda()
+        self._monto_contado = SpinMoneda()
         self._monto_contado.valueChanged.connect(self._recalcular_arqueo)
         self._boton_abrir = QPushButton("Abrir caja"); self._boton_abrir.setObjectName("primario")
         self._boton_abrir.clicked.connect(self._abrir)
@@ -39,8 +39,12 @@ class PantallaCierre(QWidget):
         self._boton_cerrar.clicked.connect(self._cerrar)
         self._boton_conteo = QPushButton("Contar efectivo")
         self._boton_conteo.clicked.connect(self._abrir_conteo)
+        self._boton_movimiento = QPushButton("Movimiento de efectivo")
+        self._boton_movimiento.clicked.connect(self._abrir_movimiento)
         self._kpi_inicial = TarjetaKpi("Monto inicial")
         self._kpi_efectivo = TarjetaKpi("Ventas efectivo")
+        self._kpi_ingresos = TarjetaKpi("Otros ingresos")
+        self._kpi_egresos = TarjetaKpi("Egresos")
         self._kpi_esperado = TarjetaKpi("Esperado")
         self._kpi_diferencia = TarjetaKpi("Diferencia")
         self._estado = QLabel(""); self._estado.setObjectName("error")
@@ -78,10 +82,16 @@ class PantallaCierre(QWidget):
         grid = QGridLayout()
         grid.addWidget(self._kpi_inicial, 0, 0)
         grid.addWidget(self._kpi_efectivo, 0, 1)
+        grid.addWidget(self._kpi_ingresos, 0, 2)
         grid.addWidget(self._kpi_esperado, 1, 0)
         grid.addWidget(self._kpi_diferencia, 1, 1)
+        grid.addWidget(self._kpi_egresos, 1, 2)
         self._layout.addWidget(QLabel(f"Caja #{sesion.id} abierta"))
         self._layout.addLayout(grid)
+        fila_mov = QHBoxLayout()
+        fila_mov.addWidget(self._boton_movimiento)
+        fila_mov.addStretch(1)
+        self._layout.addLayout(fila_mov)
         fila = QHBoxLayout()
         fila.addWidget(QLabel("Efectivo contado"))
         fila.addWidget(self._monto_contado)
@@ -101,6 +111,8 @@ class PantallaCierre(QWidget):
         contado = Decimal(str(int(self._monto_contado.value())))
         arqueo = self._ctx.svc_caja.arqueo(sesion.id, contado)
         self._kpi_efectivo.set_valor(formato_moneda(arqueo.efectivo_ventas))
+        self._kpi_ingresos.set_valor(formato_moneda(arqueo.otros_ingresos))
+        self._kpi_egresos.set_valor(formato_moneda(arqueo.otros_egresos))
         self._kpi_esperado.set_valor(formato_moneda(arqueo.esperado))
         self._kpi_diferencia.set_valor(formato_moneda(arqueo.diferencia))
         self._kpi_diferencia.set_estado("positivo" if arqueo.diferencia >= CERO else "alerta")
@@ -115,13 +127,32 @@ class PantallaCierre(QWidget):
         except (CajaYaAbierta, ValueError) as exc:
             self._estado.setText(f"Error: {exc}")
             return
+        self._desglose_conteo = None
+        self._monto_contado.setValue(0)
         self.al_mostrar()
         self.caja_cambiada.emit()
 
     @Slot()
+    def _abrir_movimiento(self) -> None:
+        dlg = DialogoMovimientoCaja(self)
+        if dlg.exec() != QDialog.Accepted:
+            return
+        try:
+            self._ctx.svc_caja.registrar_movimiento(
+                tipo=dlg.tipo(), monto=dlg.monto(), motivo=dlg.motivo(),
+                fecha=datetime.now(), usuario_id=self._ctx.usuario_actual_id)
+        except (CajaNoAbierta, EfectivoInsuficiente, ValueError) as exc:
+            self._estado.setText(f"Error: {exc}")
+            return
+        self._estado.setText("")
+        self._recalcular_arqueo()
+        self.caja_cambiada.emit()
+
+    @Slot()
     def _abrir_conteo(self) -> None:
-        dlg = DialogoConteoEfectivo(self)
+        dlg = DialogoConteoEfectivo(self, desglose=self._desglose_conteo)
         if dlg.exec() == QDialog.Accepted:
+            self._desglose_conteo = dlg.desglose()
             self._monto_contado.setValue(float(dlg.total()))
 
     @Slot()
@@ -136,6 +167,8 @@ class PantallaCierre(QWidget):
         except (CajaNoAbierta, ValueError) as exc:
             self._estado.setText(f"Error: {exc}")
             return
+        self._desglose_conteo = None
+        self._monto_contado.setValue(0)
         QMessageBox.information(self, "Cierre", "Caja cerrada.")
         self.al_mostrar()
         self.caja_cambiada.emit()

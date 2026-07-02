@@ -14,6 +14,10 @@ QFrame#card, QFrame.card {
     border: 1px solid #2E3548;
     border-radius: 8px;
 }
+QFrame#card[promo="true"] { border: 1px solid #F59E0B; }
+QFrame#card[agotado="true"] { background-color: #14161d; }
+QLabel#badge-promo { color: #F59E0B; font-weight: bold; }
+QLabel#badge-agotado { color: #EF4444; font-weight: bold; }
 QLabel#secundario { color: #8B95A8; }
 QLabel#muted { color: #5A6278; }
 QLabel#kpi-valor { font-size: 22px; font-weight: bold; color: #F0F2F5; }

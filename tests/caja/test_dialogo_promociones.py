@@ -7,6 +7,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from decimal import Decimal  # noqa: E402
 
+from PySide6.QtCore import Qt  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from core.entidades import Producto  # noqa: E402
@@ -80,3 +81,45 @@ def test_crear_persiste_via_servicio():
     d._crear()
     assert len(d._svc.listar()) == 1
     assert d._svc.listar()[0].unidades_limite == Decimal("50")
+
+
+def test_fechas_por_defecto_ahora_y_una_hora_despues():
+    from PySide6.QtCore import QDateTime
+
+    d = _dialogo()
+    antes = QDateTime.currentDateTime()
+    assert abs(d._desde.dateTime().secsTo(antes)) <= 2
+    assert d._desde.dateTime().secsTo(d._hasta.dateTime()) == 3600
+
+
+def test_visibilidad_campos_segun_tipo_duracion():
+    d = _dialogo()
+    d._tipo_duracion.setCurrentText("tiempo")
+    assert d._form.isRowVisible(d._desde)
+    assert d._form.isRowVisible(d._hasta)
+    assert not d._form.isRowVisible(d._unidades)
+
+    d._tipo_duracion.setCurrentText("unidades")
+    assert not d._form.isRowVisible(d._desde)
+    assert not d._form.isRowVisible(d._hasta)
+    assert d._form.isRowVisible(d._unidades)
+
+    d._tipo_duracion.setCurrentText("manual")
+    assert not d._form.isRowVisible(d._desde)
+    assert not d._form.isRowVisible(d._hasta)
+    assert not d._form.isRowVisible(d._unidades)
+
+
+def test_desactivar_usa_id_de_la_promo_no_la_fila():
+    d = _dialogo()
+    d._producto.setCurrentIndex(0)
+    d._tipo_valor.setCurrentText("precio_fijo")
+    d._valor.setValue(15000)
+    d._tipo_duracion.setCurrentText("manual")
+    d._crear()
+    promo_id = d._svc.listar()[0].id
+    assert d._tabla.item(0, 0).data(Qt.UserRole) == promo_id
+
+    d._tabla.selectRow(0)
+    d._desactivar()
+    assert d._svc.listar()[0].activa is False

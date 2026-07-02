@@ -4,23 +4,24 @@ from __future__ import annotations
 from decimal import Decimal
 
 from PySide6.QtCore import Slot
-from PySide6.QtWidgets import (
-    QDialogButtonBox, QDialog, QFormLayout, QLabel, QSpinBox, QVBoxLayout,
-)
+from PySide6.QtWidgets import QDialogButtonBox, QDialog, QFormLayout, QLabel, QVBoxLayout
 
 from caja.conteo import DENOMINACIONES, total_conteo
 from caja.formato import formato_moneda
+from caja.widgets import SpinBoxPos
 
 
 class DialogoConteoEfectivo(QDialog):
-    def __init__(self, parent=None) -> None:
+    def __init__(self, parent=None, *, desglose: dict[int, int] | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Contar efectivo")
-        self._spins: dict[int, QSpinBox] = {}
+        self._spins: dict[int, SpinBoxPos] = {}
+        desglose = desglose or {}
 
         form = QFormLayout()
         for denominacion in DENOMINACIONES:
-            spin = QSpinBox(); spin.setMaximum(100000)
+            spin = SpinBoxPos(); spin.setMaximum(100000)
+            spin.setValue(desglose.get(denominacion, 0))
             spin.valueChanged.connect(self._actualizar_total)
             self._spins[denominacion] = spin
             form.addRow(formato_moneda(Decimal(denominacion)), spin)
@@ -40,7 +41,10 @@ class DialogoConteoEfectivo(QDialog):
         layout.addWidget(botones)
 
     def total(self) -> Decimal:
-        return total_conteo({den: spin.value() for den, spin in self._spins.items()})
+        return total_conteo(self.desglose())
+
+    def desglose(self) -> dict[int, int]:
+        return {den: spin.value() for den, spin in self._spins.items()}
 
     @Slot()
     def _actualizar_total(self) -> None:

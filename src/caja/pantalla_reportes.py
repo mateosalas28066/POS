@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, time
+from decimal import Decimal
 
 from PySide6.QtCore import QDate, Slot
 from PySide6.QtWidgets import (
@@ -10,7 +11,7 @@ from PySide6.QtWidgets import (
 )
 
 from caja.contexto import ContextoApp
-from caja.formato import formato_moneda
+from caja.formato import formato_cantidad, formato_moneda
 from caja.widgets import TarjetaKpi
 
 
@@ -45,6 +46,13 @@ class PantallaReportes(QWidget):
         tab_ventas = QWidget(); lv = QVBoxLayout(tab_ventas)
         lv.addLayout(kpis); lv.addWidget(self._tabla_ventas)
 
+        # Pestaña "Por categoría"
+        self._tabla_categoria = QTableWidget(0, 5)
+        self._tabla_categoria.setHorizontalHeaderLabels(
+            ["Categoría", "Ventas", "IVA", "Devoluciones", "Neto"])
+        self._tabla_categoria.setEditTriggers(QTableWidget.NoEditTriggers)
+        tab_cat = QWidget(); lcat = QVBoxLayout(tab_cat); lcat.addWidget(self._tabla_categoria)
+
         self._tabla_inventario = QTableWidget(0, 4)
         self._tabla_inventario.setHorizontalHeaderLabels(
             ["Producto", "Entradas", "Salidas", "Neto"])
@@ -69,23 +77,70 @@ class PantallaReportes(QWidget):
         lf.addWidget(self._detalle_factura)
 
         # Pestaña "Por cajero"
+        self._filas_cajero: tuple = ()
         self._fuente_cajero = QComboBox()
         self._fuente_cajero.currentIndexChanged.connect(self._consultar_cajero)
         self._tabla_cajero = QTableWidget(0, 5)
         self._tabla_cajero.setHorizontalHeaderLabels(
             ["Cajero", "# Ventas", "Total", "Devoluciones", "Neto"])
         self._tabla_cajero.setEditTriggers(QTableWidget.NoEditTriggers)
+        self._tabla_cajero.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self._tabla_cajero.setSelectionMode(QAbstractItemView.SingleSelection)
+        self._tabla_cajero.itemSelectionChanged.connect(self._mostrar_detalle_cajero)
+        self._detalle_cajero = QTableWidget(0, 2)
+        self._detalle_cajero.setHorizontalHeaderLabels(["Método de pago", "Monto"])
+        self._detalle_cajero.setEditTriggers(QTableWidget.NoEditTriggers)
         tab_caj = QWidget(); lc = QVBoxLayout(tab_caj)
         barra_caj = QHBoxLayout()
         barra_caj.addWidget(QLabel("Fuente")); barra_caj.addWidget(self._fuente_cajero)
         barra_caj.addStretch(1)
         lc.addLayout(barra_caj); lc.addWidget(self._tabla_cajero)
+        lc.addWidget(QLabel("Métodos de pago del cajero seleccionado"))
+        lc.addWidget(self._detalle_cajero)
+
+        # Pestaña "Compras"
+        self._kpi_num_compras = TarjetaKpi("# Compras")
+        self._kpi_total_compras = TarjetaKpi("Total")
+        kpis_compras = QHBoxLayout()
+        kpis_compras.addWidget(self._kpi_num_compras)
+        kpis_compras.addWidget(self._kpi_total_compras)
+        kpis_compras.addStretch(1)
+        self._tabla_compras = QTableWidget(0, 3)
+        self._tabla_compras.setHorizontalHeaderLabels(["Proveedor", "# Compras", "Total"])
+        self._tabla_compras.setEditTriggers(QTableWidget.NoEditTriggers)
+        tab_compras = QWidget(); lco = QVBoxLayout(tab_compras)
+        lco.addLayout(kpis_compras); lco.addWidget(self._tabla_compras)
+
+        # Pestaña "Mensual"
+        hoy = QDate.currentDate()
+        self._combo_anio = QComboBox()
+        for anio in range(hoy.year() - 2, hoy.year() + 1):
+            self._combo_anio.addItem(str(anio), anio)
+        self._combo_anio.setCurrentIndex(self._combo_anio.count() - 1)
+        self._combo_mes = QComboBox()
+        for mes in range(1, 13):
+            self._combo_mes.addItem(str(mes), mes)
+        self._combo_mes.setCurrentIndex(hoy.month() - 1)
+        boton_mensual = QPushButton("Ver"); boton_mensual.setObjectName("primario")
+        boton_mensual.clicked.connect(self._consultar_mensual)
+        barra_mensual = QHBoxLayout()
+        barra_mensual.addWidget(QLabel("Año")); barra_mensual.addWidget(self._combo_anio)
+        barra_mensual.addWidget(QLabel("Mes")); barra_mensual.addWidget(self._combo_mes)
+        barra_mensual.addWidget(boton_mensual); barra_mensual.addStretch(1)
+        self._tabla_mensual = QTableWidget(0, 2)
+        self._tabla_mensual.setHorizontalHeaderLabels(["Concepto", "Valor"])
+        self._tabla_mensual.setEditTriggers(QTableWidget.NoEditTriggers)
+        tab_mensual = QWidget(); lm = QVBoxLayout(tab_mensual)
+        lm.addLayout(barra_mensual); lm.addWidget(self._tabla_mensual)
 
         tabs = QTabWidget()
         tabs.addTab(tab_ventas, "Ventas")
+        tabs.addTab(tab_cat, "Por categoría")
         tabs.addTab(tab_inv, "Inventario")
         tabs.addTab(tab_fac, "Por factura")
         tabs.addTab(tab_caj, "Por cajero")
+        tabs.addTab(tab_compras, "Compras")
+        tabs.addTab(tab_mensual, "Mensual")
 
         layout = QVBoxLayout(self)
         layout.addLayout(barra)
@@ -118,6 +173,18 @@ class PantallaReportes(QWidget):
                 medio.nombre if medio else f"#{medio_id}"))
             self._tabla_ventas.setItem(fila, 1, QTableWidgetItem(formato_moneda(monto)))
 
+        nombres_cat = {c.id: c.nombre for c in self._ctx.repo_categorias.listar()}
+        self._tabla_categoria.setRowCount(0)
+        for rc in self._ctx.svc_reportes.por_categoria(desde, hasta):
+            fila = self._tabla_categoria.rowCount()
+            self._tabla_categoria.insertRow(fila)
+            valores = [
+                nombres_cat.get(rc.categoria_id, "Sin categoría"),
+                formato_moneda(rc.total), formato_moneda(rc.total_impuestos),
+                formato_moneda(rc.total_devoluciones), formato_moneda(rc.neto)]
+            for col, texto in enumerate(valores):
+                self._tabla_categoria.setItem(fila, col, QTableWidgetItem(texto))
+
         ri = self._ctx.svc_reportes.inventario(desde, hasta)
         self._tabla_inventario.setRowCount(0)
         for mp in ri.por_producto:
@@ -126,9 +193,12 @@ class PantallaReportes(QWidget):
             self._tabla_inventario.insertRow(fila)
             self._tabla_inventario.setItem(fila, 0, QTableWidgetItem(
                 prod.nombre if prod else f"#{mp.producto_id}"))
-            self._tabla_inventario.setItem(fila, 1, QTableWidgetItem(str(mp.entradas)))
-            self._tabla_inventario.setItem(fila, 2, QTableWidgetItem(str(mp.salidas)))
-            self._tabla_inventario.setItem(fila, 3, QTableWidgetItem(str(mp.neto)))
+            self._tabla_inventario.setItem(fila, 1, QTableWidgetItem(
+                formato_cantidad(mp.entradas, "")))
+            self._tabla_inventario.setItem(fila, 2, QTableWidgetItem(
+                formato_cantidad(mp.salidas, "")))
+            self._tabla_inventario.setItem(fila, 3, QTableWidgetItem(
+                formato_cantidad(mp.neto, "")))
 
         self._facturas = self._ctx.svc_reportes.facturas(desde, hasta)
         self._tabla_factura.setRowCount(0)
@@ -154,6 +224,39 @@ class PantallaReportes(QWidget):
             self._fuente_cajero.addItem(etiqueta, s.id)
         self._fuente_cajero.blockSignals(False)
         self._consultar_cajero()
+
+        rcompras = self._ctx.svc_reportes.compras(desde, hasta)
+        self._kpi_num_compras.set_valor(str(rcompras.num_compras))
+        self._kpi_total_compras.set_valor(formato_moneda(rcompras.total))
+        self._tabla_compras.setRowCount(0)
+        for rp in self._ctx.svc_reportes.compras_por_proveedor(desde, hasta):
+            proveedor = self._ctx.repo_proveedores.por_id(rp.proveedor_id)
+            fila = self._tabla_compras.rowCount()
+            self._tabla_compras.insertRow(fila)
+            valores = [
+                proveedor.nombre if proveedor else f"#{rp.proveedor_id}",
+                str(rp.num_compras), formato_moneda(rp.total)]
+            for col, texto in enumerate(valores):
+                self._tabla_compras.setItem(fila, col, QTableWidgetItem(texto))
+
+    @Slot()
+    def _consultar_mensual(self) -> None:
+        anio = self._combo_anio.currentData()
+        mes = self._combo_mes.currentData()
+        rm = self._ctx.svc_reportes.mensual(anio, mes)
+        filas = [
+            ("Ventas", formato_moneda(rm.ventas)),
+            ("Compras", formato_moneda(rm.compras)),
+            ("Gastos", formato_moneda(rm.gastos)),
+            ("Saldo por cobrar", formato_moneda(rm.saldo_cxc)),
+            ("Saldo por pagar", formato_moneda(rm.saldo_cxp)),
+        ]
+        self._tabla_mensual.setRowCount(0)
+        for concepto, valor in filas:
+            fila = self._tabla_mensual.rowCount()
+            self._tabla_mensual.insertRow(fila)
+            self._tabla_mensual.setItem(fila, 0, QTableWidgetItem(concepto))
+            self._tabla_mensual.setItem(fila, 1, QTableWidgetItem(valor))
 
     def _mostrar_detalle_factura(self) -> None:
         fila = self._tabla_factura.currentRow()
@@ -183,21 +286,29 @@ class PantallaReportes(QWidget):
             filas = self._ctx.svc_reportes.por_cajero(desde, hasta)
         else:
             filas = self._ctx.svc_reportes.por_cajero_de_sesion(sesion_id)
+        self._filas_cajero = filas
         self._tabla_cajero.setRowCount(0)
         for c in filas:
             cajero = self._ctx.repo_usuarios.por_id(c.usuario_id) if c.usuario_id else None
             fila = self._tabla_cajero.rowCount()
             self._tabla_cajero.insertRow(fila)
             valores = [
-                cajero.nombre if cajero else "Sin cajero", str(c.num_ventas),
+                cajero.nombre if cajero else "Sin cajero", formato_cantidad(Decimal(c.num_ventas), ""),
                 formato_moneda(c.total), formato_moneda(c.total_devoluciones),
                 formato_moneda(c.neto)]
             for col, texto in enumerate(valores):
                 self._tabla_cajero.setItem(fila, col, QTableWidgetItem(texto))
-            for medio_id, monto in c.por_medio.items():
-                medio = self._ctx.repo_medios_pago.por_id(medio_id)
-                nombre = medio.nombre if medio else f"#{medio_id}"
-                sub = self._tabla_cajero.rowCount()
-                self._tabla_cajero.insertRow(sub)
-                self._tabla_cajero.setItem(sub, 0, QTableWidgetItem(f"    {nombre}"))
-                self._tabla_cajero.setItem(sub, 4, QTableWidgetItem(formato_moneda(monto)))
+        self._detalle_cajero.setRowCount(0)
+
+    def _mostrar_detalle_cajero(self) -> None:
+        fila = self._tabla_cajero.currentRow()
+        self._detalle_cajero.setRowCount(0)
+        if not (0 <= fila < len(self._filas_cajero)):
+            return
+        for medio_id, monto in self._filas_cajero[fila].por_medio.items():
+            medio = self._ctx.repo_medios_pago.por_id(medio_id)
+            r = self._detalle_cajero.rowCount()
+            self._detalle_cajero.insertRow(r)
+            nombre = medio.nombre if medio else f"#{medio_id}"
+            self._detalle_cajero.setItem(r, 0, QTableWidgetItem(nombre))
+            self._detalle_cajero.setItem(r, 1, QTableWidgetItem(formato_moneda(monto)))

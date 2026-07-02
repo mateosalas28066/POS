@@ -5,9 +5,10 @@ from datetime import datetime
 from decimal import Decimal
 
 from PySide6.QtWidgets import (
-    QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout, QLineEdit, QVBoxLayout,
+    QComboBox, QDialog, QDialogButtonBox, QFormLayout, QLineEdit, QVBoxLayout,
 )
 
+from caja.widgets import DecimalSpinBoxPos
 from core.entidades import MovimientoInventario
 
 
@@ -19,7 +20,7 @@ class DialogoMovimiento(QDialog):
 
         self._tipo = QComboBox()
         self._tipo.addItems(["entrada", "salida"])
-        self._cantidad = QDoubleSpinBox()
+        self._cantidad = DecimalSpinBoxPos()
         self._cantidad.setMaximum(99_999_999)
         self._cantidad.setDecimals(3)
         self._cantidad.setMinimum(0.001)

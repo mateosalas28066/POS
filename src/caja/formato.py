@@ -14,12 +14,14 @@ def formato_moneda(v: Decimal) -> str:
 
 
 def formato_cantidad(v: Decimal, unidad: str) -> str:
-    """Entero sin decimales; fraccionario con coma decimal (es-CO)."""
+    """Entero con separador de miles; fraccionario con coma decimal (es-CO)."""
     if v == v.to_integral_value():
-        texto = str(int(v))
+        entero = int(v)
+        signo = "-" if entero < 0 else ""
+        texto = signo + f"{abs(entero):,}".replace(",", ".")
     else:
         texto = format(v.normalize(), "f").replace(".", ",")
-    return f"{texto} {unidad}"
+    return f"{texto} {unidad}" if unidad else texto
 
 
 def formato_fecha(dt: datetime) -> str:

@@ -26,6 +26,20 @@ def test_credencial_inexistente_none(conn):
     assert repo.credencial("fantasma") is None
 
 
+def test_actualizar_password_reemplaza_hash(conn):
+    repo = RepositorioUsuariosSQLite(conn)
+    u = repo.guardar(Usuario(nombre="ana"), "hash-viejo")
+    repo.actualizar_password(u.id, "hash-nuevo")
+    _, hash_ = repo.credencial("ana")
+    assert hash_ == "hash-nuevo"
+
+
+def test_actualizar_password_usuario_inexistente_falla(conn):
+    repo = RepositorioUsuariosSQLite(conn)
+    with pytest.raises(LookupError):
+        repo.actualizar_password(999, "h")
+
+
 def test_listar(conn):
     repo = RepositorioUsuariosSQLite(conn)
     repo.guardar(Usuario(nombre="ana"), "h")

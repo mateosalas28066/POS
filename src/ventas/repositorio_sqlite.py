@@ -8,7 +8,9 @@ from datetime import datetime
 from decimal import Decimal
 
 from core.entidades import (
-    CajaSesion, Cliente, Devolucion, LineaDevolucion, LineaVenta, MedioPago, Pago, Usuario, Venta,
+    AbonoCliente, CajaSesion, CategoriaGasto, Cliente, Compra, Despiece, Devolucion, Gasto,
+    LineaCompra, LineaDespiece, LineaDevolucion, LineaVenta, MedioPago, MovimientoCaja, Pago,
+    PagoProveedor, Proveedor, Usuario, Venta,
 )
 
 
@@ -199,6 +201,17 @@ class RepositorioVentasSQLite:
                      referencia=f["referencia"], venta_id=f["venta_id"], id=f["id"])
                 for f in filas]
 
+    def fiado_por_cliente(self, medio_fiado_id: int) -> dict[int, Decimal]:
+        filas = self._conn.execute(
+            "SELECT v.cliente_id AS cliente_id, p.monto AS monto "
+            "FROM pagos p JOIN ventas v ON v.id = p.venta_id "
+            "WHERE p.medio_pago_id = ? AND v.estado != 'anulada' AND v.cliente_id IS NOT NULL",
+            (medio_fiado_id,)).fetchall()
+        total: dict[int, Decimal] = {}
+        for f in filas:
+            total[f["cliente_id"]] = total.get(f["cliente_id"], Decimal("0")) + f["monto"]
+        return total
+
 
 def _fila_a_sesion(f: sqlite3.Row) -> CajaSesion:
     return CajaSesion(
@@ -247,6 +260,28 @@ class RepositorioCajaSesionesSQLite:
         filas = self._conn.execute(
             "SELECT * FROM caja_sesiones ORDER BY id").fetchall()
         return [_fila_a_sesion(f) for f in filas]
+
+
+class RepositorioMovimientosCajaSQLite:
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def registrar(self, m: MovimientoCaja) -> MovimientoCaja:
+        cur = self._conn.execute(
+            "INSERT INTO caja_movimientos (caja_sesion_id, usuario_id, tipo, monto, motivo, fecha) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (m.caja_sesion_id, m.usuario_id, m.tipo, m.monto, m.motivo, m.fecha.isoformat()))
+        self._conn.commit()
+        return replace(m, id=cur.lastrowid)
+
+    def de_sesion(self, caja_sesion_id: int) -> list[MovimientoCaja]:
+        filas = self._conn.execute(
+            "SELECT * FROM caja_movimientos WHERE caja_sesion_id = ? ORDER BY id",
+            (caja_sesion_id,)).fetchall()
+        return [MovimientoCaja(
+            caja_sesion_id=f["caja_sesion_id"], tipo=f["tipo"], monto=f["monto"],
+            motivo=f["motivo"], fecha=datetime.fromisoformat(f["fecha"]),
+            usuario_id=f["usuario_id"], id=f["id"]) for f in filas]
 
 
 def _fila_a_linea_dev(f: sqlite3.Row) -> LineaDevolucion:
@@ -366,6 +401,318 @@ class RepositorioUsuariosSQLite:
         f = self._conn.execute("SELECT * FROM usuarios WHERE nombre = ?", (nombre,)).fetchone()
         return (_fila_a_usuario(f), f["hash_password"]) if f else None
 
+    def actualizar_password(self, usuario_id: int, hash_password: str) -> None:
+        cur = self._conn.execute(
+            "UPDATE usuarios SET hash_password = ? WHERE id = ?", (hash_password, usuario_id))
+        if cur.rowcount == 0:
+            raise LookupError(f"usuario inexistente: id={usuario_id}")
+        self._conn.commit()
+
     def listar(self) -> list[Usuario]:
         filas = self._conn.execute("SELECT * FROM usuarios ORDER BY id").fetchall()
         return [_fila_a_usuario(f) for f in filas]
+
+
+def _fila_a_proveedor(f: sqlite3.Row) -> Proveedor:
+    return Proveedor(
+        identificacion=f["identificacion"],
+        nombre=f["nombre"],
+        contacto=f["contacto"],
+        bloqueado_edicion=bool(f["bloqueado_edicion"]),
+        id=f["id"],
+    )
+
+
+class RepositorioProveedoresSQLite:
+    _COLS = "identificacion, nombre, contacto, bloqueado_edicion"
+
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def guardar(self, proveedor: Proveedor) -> Proveedor:
+        cur = self._conn.execute(
+            f"INSERT INTO proveedores ({self._COLS}) VALUES (?, ?, ?, ?)",
+            (proveedor.identificacion, proveedor.nombre, proveedor.contacto,
+             int(proveedor.bloqueado_edicion)))
+        self._conn.commit()
+        return replace(proveedor, id=cur.lastrowid)
+
+    def por_id(self, id: int) -> Proveedor | None:
+        f = self._conn.execute("SELECT * FROM proveedores WHERE id = ?", (id,)).fetchone()
+        return _fila_a_proveedor(f) if f else None
+
+    def por_identificacion(self, identificacion: str) -> Proveedor | None:
+        f = self._conn.execute(
+            "SELECT * FROM proveedores WHERE identificacion = ?", (identificacion,)).fetchone()
+        return _fila_a_proveedor(f) if f else None
+
+    def listar(self) -> list[Proveedor]:
+        filas = self._conn.execute("SELECT * FROM proveedores ORDER BY id").fetchall()
+        return [_fila_a_proveedor(f) for f in filas]
+
+    def actualizar(self, proveedor: Proveedor) -> Proveedor:
+        cur = self._conn.execute(
+            "UPDATE proveedores SET identificacion = ?, nombre = ?, contacto = ?, "
+            "bloqueado_edicion = ? WHERE id = ?",
+            (proveedor.identificacion, proveedor.nombre, proveedor.contacto,
+             int(proveedor.bloqueado_edicion), proveedor.id))
+        if cur.rowcount == 0:
+            raise LookupError(f"proveedor inexistente: id={proveedor.id}")
+        self._conn.commit()
+        return proveedor
+
+
+def _fila_a_linea_compra(f: sqlite3.Row) -> LineaCompra:
+    return LineaCompra(
+        producto_id=f["producto_id"],
+        descripcion=f["descripcion"],
+        cantidad=f["cantidad"],
+        costo_unit=f["costo_unit"],
+        subtotal=f["subtotal"],
+        compra_id=f["compra_id"],
+        id=f["id"],
+    )
+
+
+class RepositorioComprasSQLite:
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def guardar(self, compra: Compra) -> Compra:
+        cur = self._conn.execute(
+            "INSERT INTO compras (proveedor_id, fecha, total, estado, usuario_id) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (compra.proveedor_id, compra.fecha.isoformat(), compra.total,
+             compra.estado, compra.usuario_id))
+        compra_id = cur.lastrowid
+        lineas_guardadas = []
+        for linea in compra.lineas:
+            lcur = self._conn.execute(
+                "INSERT INTO compra_lineas "
+                "(compra_id, producto_id, descripcion, cantidad, costo_unit, subtotal) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (compra_id, linea.producto_id, linea.descripcion, linea.cantidad,
+                 linea.costo_unit, linea.subtotal))
+            lineas_guardadas.append(replace(linea, compra_id=compra_id, id=lcur.lastrowid))
+        self._conn.commit()
+        return replace(compra, lineas=tuple(lineas_guardadas), id=compra_id)
+
+    def por_id(self, id: int) -> Compra | None:
+        fc = self._conn.execute("SELECT * FROM compras WHERE id = ?", (id,)).fetchone()
+        if fc is None:
+            return None
+        filas = self._conn.execute(
+            "SELECT * FROM compra_lineas WHERE compra_id = ? ORDER BY id", (id,)).fetchall()
+        return Compra(
+            proveedor_id=fc["proveedor_id"],
+            fecha=datetime.fromisoformat(fc["fecha"]),
+            lineas=tuple(_fila_a_linea_compra(f) for f in filas),
+            total=fc["total"],
+            estado=fc["estado"],
+            usuario_id=fc["usuario_id"],
+            id=fc["id"],
+        )
+
+    def compras_en(self, desde: datetime, hasta: datetime) -> list[Compra]:
+        ids = self._conn.execute(
+            "SELECT id FROM compras WHERE fecha >= ? AND fecha < ? ORDER BY id",
+            (desde.isoformat(), hasta.isoformat())).fetchall()
+        return [self.por_id(f["id"]) for f in ids]
+
+    def compras_de_proveedor(self, proveedor_id: int) -> list[Compra]:
+        ids = self._conn.execute(
+            "SELECT id FROM compras WHERE proveedor_id = ? ORDER BY id",
+            (proveedor_id,)).fetchall()
+        return [self.por_id(f["id"]) for f in ids]
+
+    def credito_por_proveedor(self) -> dict[int, Decimal]:
+        filas = self._conn.execute(
+            "SELECT proveedor_id, total FROM compras WHERE estado = 'credito'").fetchall()
+        total: dict[int, Decimal] = {}
+        for f in filas:
+            total[f["proveedor_id"]] = total.get(f["proveedor_id"], Decimal("0")) + f["total"]
+        return total
+
+
+def _fila_a_linea_despiece(f: sqlite3.Row) -> LineaDespiece:
+    return LineaDespiece(
+        producto_corte_id=f["producto_corte_id"],
+        peso=f["peso"],
+        costo_asignado=f["costo_asignado"],
+        costo_unit=f["costo_unit"],
+        despiece_id=f["despiece_id"],
+        id=f["id"],
+    )
+
+
+class RepositorioDespiecesSQLite:
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def guardar(self, despiece: Despiece) -> Despiece:
+        cur = self._conn.execute(
+            "INSERT INTO despieces "
+            "(producto_canal_id, peso_canal, costo_canal, fecha, usuario_id) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (despiece.producto_canal_id, despiece.peso_canal, despiece.costo_canal,
+             despiece.fecha.isoformat(), despiece.usuario_id))
+        despiece_id = cur.lastrowid
+        lineas_guardadas = []
+        for linea in despiece.lineas:
+            lcur = self._conn.execute(
+                "INSERT INTO despiece_lineas "
+                "(despiece_id, producto_corte_id, peso, costo_asignado, costo_unit) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (despiece_id, linea.producto_corte_id, linea.peso,
+                 linea.costo_asignado, linea.costo_unit))
+            lineas_guardadas.append(replace(linea, despiece_id=despiece_id, id=lcur.lastrowid))
+        self._conn.commit()
+        return replace(despiece, lineas=tuple(lineas_guardadas), id=despiece_id)
+
+    def por_id(self, id: int) -> Despiece | None:
+        fd = self._conn.execute("SELECT * FROM despieces WHERE id = ?", (id,)).fetchone()
+        if fd is None:
+            return None
+        filas = self._conn.execute(
+            "SELECT * FROM despiece_lineas WHERE despiece_id = ? ORDER BY id", (id,)).fetchall()
+        return Despiece(
+            producto_canal_id=fd["producto_canal_id"],
+            peso_canal=fd["peso_canal"],
+            costo_canal=fd["costo_canal"],
+            fecha=datetime.fromisoformat(fd["fecha"]),
+            lineas=tuple(_fila_a_linea_despiece(f) for f in filas),
+            usuario_id=fd["usuario_id"],
+            id=fd["id"],
+        )
+
+
+def _fila_a_abono_cliente(f: sqlite3.Row) -> AbonoCliente:
+    return AbonoCliente(
+        cliente_id=f["cliente_id"],
+        monto=f["monto"],
+        fecha=datetime.fromisoformat(f["fecha"]),
+        medio_pago_id=f["medio_pago_id"],
+        caja_sesion_id=f["caja_sesion_id"],
+        usuario_id=f["usuario_id"],
+        id=f["id"],
+    )
+
+
+class RepositorioCuentasCobrarSQLite:
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def guardar(self, abono: AbonoCliente) -> AbonoCliente:
+        cur = self._conn.execute(
+            "INSERT INTO abonos_cliente "
+            "(cliente_id, monto, fecha, medio_pago_id, caja_sesion_id, usuario_id) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (abono.cliente_id, abono.monto, abono.fecha.isoformat(), abono.medio_pago_id,
+             abono.caja_sesion_id, abono.usuario_id))
+        self._conn.commit()
+        return replace(abono, id=cur.lastrowid)
+
+    def abonos_por_cliente(self) -> dict[int, Decimal]:
+        filas = self._conn.execute(
+            "SELECT cliente_id, monto FROM abonos_cliente").fetchall()
+        total: dict[int, Decimal] = {}
+        for f in filas:
+            total[f["cliente_id"]] = total.get(f["cliente_id"], Decimal("0")) + f["monto"]
+        return total
+
+
+def _fila_a_pago_proveedor(f: sqlite3.Row) -> PagoProveedor:
+    return PagoProveedor(
+        proveedor_id=f["proveedor_id"],
+        monto=f["monto"],
+        fecha=datetime.fromisoformat(f["fecha"]),
+        medio_pago_id=f["medio_pago_id"],
+        caja_sesion_id=f["caja_sesion_id"],
+        usuario_id=f["usuario_id"],
+        id=f["id"],
+    )
+
+
+class RepositorioCuentasPagarSQLite:
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def guardar(self, pago: PagoProveedor) -> PagoProveedor:
+        cur = self._conn.execute(
+            "INSERT INTO pagos_proveedor "
+            "(proveedor_id, monto, fecha, medio_pago_id, caja_sesion_id, usuario_id) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (pago.proveedor_id, pago.monto, pago.fecha.isoformat(), pago.medio_pago_id,
+             pago.caja_sesion_id, pago.usuario_id))
+        self._conn.commit()
+        return replace(pago, id=cur.lastrowid)
+
+    def pagos_por_proveedor(self) -> dict[int, Decimal]:
+        filas = self._conn.execute(
+            "SELECT proveedor_id, monto FROM pagos_proveedor").fetchall()
+        total: dict[int, Decimal] = {}
+        for f in filas:
+            total[f["proveedor_id"]] = total.get(f["proveedor_id"], Decimal("0")) + f["monto"]
+        return total
+
+
+def _fila_a_categoria_gasto(f: sqlite3.Row) -> CategoriaGasto:
+    return CategoriaGasto(nombre=f["nombre"], id=f["id"])
+
+
+class RepositorioCategoriasGastoSQLite:
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def guardar(self, categoria: CategoriaGasto) -> CategoriaGasto:
+        cur = self._conn.execute(
+            "INSERT INTO categorias_gasto (nombre) VALUES (?)", (categoria.nombre,))
+        self._conn.commit()
+        return replace(categoria, id=cur.lastrowid)
+
+    def listar(self) -> list[CategoriaGasto]:
+        filas = self._conn.execute("SELECT * FROM categorias_gasto ORDER BY id").fetchall()
+        return [_fila_a_categoria_gasto(f) for f in filas]
+
+    def actualizar(self, categoria: CategoriaGasto) -> CategoriaGasto:
+        cur = self._conn.execute(
+            "UPDATE categorias_gasto SET nombre = ? WHERE id = ?",
+            (categoria.nombre, categoria.id))
+        if cur.rowcount == 0:
+            raise LookupError(f"categoría de gasto inexistente: id={categoria.id}")
+        self._conn.commit()
+        return categoria
+
+
+def _fila_a_gasto(f: sqlite3.Row) -> Gasto:
+    return Gasto(
+        fecha=datetime.fromisoformat(f["fecha"]),
+        categoria_gasto_id=f["categoria_gasto_id"],
+        monto=f["monto"],
+        descripcion=f["descripcion"],
+        medio_pago_id=f["medio_pago_id"],
+        caja_sesion_id=f["caja_sesion_id"],
+        usuario_id=f["usuario_id"],
+        id=f["id"],
+    )
+
+
+class RepositorioGastosSQLite:
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def guardar(self, gasto: Gasto) -> Gasto:
+        cur = self._conn.execute(
+            "INSERT INTO gastos "
+            "(fecha, categoria_gasto_id, monto, descripcion, medio_pago_id, caja_sesion_id, "
+            "usuario_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (gasto.fecha.isoformat(), gasto.categoria_gasto_id, gasto.monto, gasto.descripcion,
+             gasto.medio_pago_id, gasto.caja_sesion_id, gasto.usuario_id))
+        self._conn.commit()
+        return replace(gasto, id=cur.lastrowid)
+
+    def gastos_en(self, desde: datetime, hasta: datetime) -> list[Gasto]:
+        filas = self._conn.execute(
+            "SELECT * FROM gastos WHERE fecha >= ? AND fecha < ? ORDER BY id",
+            (desde.isoformat(), hasta.isoformat())).fetchall()
+        return [_fila_a_gasto(f) for f in filas]

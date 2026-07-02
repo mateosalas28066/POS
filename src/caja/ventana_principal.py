@@ -5,15 +5,21 @@ from decimal import Decimal
 
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import (
-    QButtonGroup, QHBoxLayout, QMainWindow, QStackedWidget, QVBoxLayout, QWidget,
+    QButtonGroup, QDialog, QHBoxLayout, QMainWindow, QStackedWidget, QVBoxLayout, QWidget,
 )
 
 from caja.contexto import EFECTIVO_MEDIO_PAGO_ID, ContextoApp
+from caja.dialogos.dialogo_cambio_password import DialogoCambioPassword
 from caja.formato import formato_moneda
 from caja.pantalla_cierre import PantallaCierre
 from caja.pantalla_clientes import PantallaClientes
+from caja.pantalla_compras import PantallaCompras
+from caja.pantalla_cuentas import PantallaCuentas
+from caja.pantalla_despiece import PantallaDespiece
 from caja.pantalla_devoluciones import PantallaDevoluciones
+from caja.pantalla_gastos import PantallaGastos
 from caja.pantalla_inventario import PantallaInventario
+from caja.pantalla_proveedores import PantallaProveedores
 from caja.pantalla_reportes import PantallaReportes
 from caja.pantalla_usuarios import PantallaUsuarios
 from caja.pantalla_venta import PantallaVenta
@@ -26,6 +32,11 @@ _DEFINICION = [
     ("venta", "Venta", PantallaVenta, None),
     ("inventario", "Inventario", PantallaInventario, None),
     ("clientes", "Clientes", PantallaClientes, None),
+    ("clientes", "Proveedores", PantallaProveedores, None),
+    ("inventario", "Compras", PantallaCompras, None),
+    ("clientes", "Cuentas", PantallaCuentas, None),
+    ("inventario", "Gastos", PantallaGastos, None),
+    ("inventario", "Despiece", PantallaDespiece, None),
     ("devoluciones", "Devoluciones", PantallaDevoluciones, None),
     ("reportes", "Reportes", PantallaReportes, None),
     ("cierre", "Cierre", PantallaCierre, None),
@@ -62,6 +73,11 @@ class VentanaPrincipal(QMainWindow):
             rail_layout.addWidget(boton)
             self._botones.append(boton)
         rail_layout.addStretch(1)
+        if ctx.usuario_actual is not None:
+            boton_pwd = BotonRail(icono("clientes"), "Cambiar mi contraseña")
+            boton_pwd.setCheckable(False)
+            boton_pwd.clicked.connect(self._cambiar_password)
+            rail_layout.addWidget(boton_pwd)
 
         central = QWidget(); central.setObjectName("fondo")
         layout = QHBoxLayout(central)
@@ -76,6 +92,8 @@ class VentanaPrincipal(QMainWindow):
     def _construir_pantalla(self, factory) -> QWidget:
         if factory is PantallaClientes:
             pantalla = factory(self._ctx.svc_clientes)
+        elif factory is PantallaProveedores:
+            pantalla = factory(self._ctx.svc_proveedores)
         elif factory is PantallaUsuarios:
             pantalla = factory(self._ctx.svc_usuarios)
         else:
@@ -90,6 +108,13 @@ class VentanaPrincipal(QMainWindow):
         if hasattr(pantalla, "al_mostrar"):
             pantalla.al_mostrar()
         self._refrescar_estado()
+
+    @Slot()
+    def _cambiar_password(self) -> None:
+        dlg = DialogoCambioPassword(
+            self._ctx.svc_usuarios, self._ctx.usuario_actual.nombre, self)
+        if dlg.exec() == QDialog.Accepted:
+            self.statusBar().showMessage("Contraseña actualizada", 5000)
 
     @Slot()
     def _refrescar_estado(self) -> None:

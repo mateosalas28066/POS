@@ -4,10 +4,11 @@ from __future__ import annotations
 from decimal import Decimal
 
 from PySide6.QtWidgets import (
-    QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox,
+    QCheckBox, QComboBox, QDialog, QDialogButtonBox,
     QFormLayout, QLineEdit, QVBoxLayout,
 )
 
+from caja.widgets import SpinMoneda
 from core.entidades import Categoria, Impuesto, Producto
 
 
@@ -20,8 +21,8 @@ class DialogoProducto(QDialog):
 
         self._codigo = QLineEdit()
         self._nombre = QLineEdit()
-        self._precio = QDoubleSpinBox(); self._precio.setMaximum(99_999_999); self._precio.setDecimals(0)
-        self._costo = QDoubleSpinBox(); self._costo.setMaximum(99_999_999); self._costo.setDecimals(0)
+        self._precio = SpinMoneda()
+        self._costo = SpinMoneda()
         self._categoria = QComboBox()
         for c in categorias:
             self._categoria.addItem(c.nombre, c.id)
