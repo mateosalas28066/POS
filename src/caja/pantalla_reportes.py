@@ -98,12 +98,26 @@ class PantallaReportes(QWidget):
         lc.addWidget(QLabel("Métodos de pago del cajero seleccionado"))
         lc.addWidget(self._detalle_cajero)
 
+        # Pestaña "Compras"
+        self._kpi_num_compras = TarjetaKpi("# Compras")
+        self._kpi_total_compras = TarjetaKpi("Total")
+        kpis_compras = QHBoxLayout()
+        kpis_compras.addWidget(self._kpi_num_compras)
+        kpis_compras.addWidget(self._kpi_total_compras)
+        kpis_compras.addStretch(1)
+        self._tabla_compras = QTableWidget(0, 3)
+        self._tabla_compras.setHorizontalHeaderLabels(["Proveedor", "# Compras", "Total"])
+        self._tabla_compras.setEditTriggers(QTableWidget.NoEditTriggers)
+        tab_compras = QWidget(); lco = QVBoxLayout(tab_compras)
+        lco.addLayout(kpis_compras); lco.addWidget(self._tabla_compras)
+
         tabs = QTabWidget()
         tabs.addTab(tab_ventas, "Ventas")
         tabs.addTab(tab_cat, "Por categoría")
         tabs.addTab(tab_inv, "Inventario")
         tabs.addTab(tab_fac, "Por factura")
         tabs.addTab(tab_caj, "Por cajero")
+        tabs.addTab(tab_compras, "Compras")
 
         layout = QVBoxLayout(self)
         layout.addLayout(barra)
@@ -187,6 +201,20 @@ class PantallaReportes(QWidget):
             self._fuente_cajero.addItem(etiqueta, s.id)
         self._fuente_cajero.blockSignals(False)
         self._consultar_cajero()
+
+        rcompras = self._ctx.svc_reportes.compras(desde, hasta)
+        self._kpi_num_compras.set_valor(str(rcompras.num_compras))
+        self._kpi_total_compras.set_valor(formato_moneda(rcompras.total))
+        self._tabla_compras.setRowCount(0)
+        for rp in self._ctx.svc_reportes.compras_por_proveedor(desde, hasta):
+            proveedor = self._ctx.repo_proveedores.por_id(rp.proveedor_id)
+            fila = self._tabla_compras.rowCount()
+            self._tabla_compras.insertRow(fila)
+            valores = [
+                proveedor.nombre if proveedor else f"#{rp.proveedor_id}",
+                str(rp.num_compras), formato_moneda(rp.total)]
+            for col, texto in enumerate(valores):
+                self._tabla_compras.setItem(fila, col, QTableWidgetItem(texto))
 
     def _mostrar_detalle_factura(self) -> None:
         fila = self._tabla_factura.currentRow()

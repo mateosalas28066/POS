@@ -13,8 +13,11 @@ from caja.dialogos.dialogo_cambio_password import DialogoCambioPassword
 from caja.formato import formato_moneda
 from caja.pantalla_cierre import PantallaCierre
 from caja.pantalla_clientes import PantallaClientes
+from caja.pantalla_compras import PantallaCompras
+from caja.pantalla_despiece import PantallaDespiece
 from caja.pantalla_devoluciones import PantallaDevoluciones
 from caja.pantalla_inventario import PantallaInventario
+from caja.pantalla_proveedores import PantallaProveedores
 from caja.pantalla_reportes import PantallaReportes
 from caja.pantalla_usuarios import PantallaUsuarios
 from caja.pantalla_venta import PantallaVenta
@@ -27,6 +30,9 @@ _DEFINICION = [
     ("venta", "Venta", PantallaVenta, None),
     ("inventario", "Inventario", PantallaInventario, None),
     ("clientes", "Clientes", PantallaClientes, None),
+    ("clientes", "Proveedores", PantallaProveedores, None),
+    ("inventario", "Compras", PantallaCompras, None),
+    ("inventario", "Despiece", PantallaDespiece, None),
     ("devoluciones", "Devoluciones", PantallaDevoluciones, None),
     ("reportes", "Reportes", PantallaReportes, None),
     ("cierre", "Cierre", PantallaCierre, None),
@@ -82,6 +88,8 @@ class VentanaPrincipal(QMainWindow):
     def _construir_pantalla(self, factory) -> QWidget:
         if factory is PantallaClientes:
             pantalla = factory(self._ctx.svc_clientes)
+        elif factory is PantallaProveedores:
+            pantalla = factory(self._ctx.svc_proveedores)
         elif factory is PantallaUsuarios:
             pantalla = factory(self._ctx.svc_usuarios)
         else:
