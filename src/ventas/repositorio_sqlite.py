@@ -8,8 +8,8 @@ from datetime import datetime
 from decimal import Decimal
 
 from core.entidades import (
-    CajaSesion, Cliente, Compra, Despiece, Devolucion, LineaCompra, LineaDespiece, LineaDevolucion,
-    LineaVenta, MedioPago, MovimientoCaja, Pago, Proveedor, Usuario, Venta,
+    AbonoCliente, CajaSesion, Cliente, Compra, Despiece, Devolucion, LineaCompra, LineaDespiece,
+    LineaDevolucion, LineaVenta, MedioPago, MovimientoCaja, Pago, Proveedor, Usuario, Venta,
 )
 
 
@@ -199,6 +199,17 @@ class RepositorioVentasSQLite:
         return [Pago(medio_pago_id=f["medio_pago_id"], monto=f["monto"],
                      referencia=f["referencia"], venta_id=f["venta_id"], id=f["id"])
                 for f in filas]
+
+    def fiado_por_cliente(self, medio_fiado_id: int) -> dict[int, Decimal]:
+        filas = self._conn.execute(
+            "SELECT v.cliente_id AS cliente_id, p.monto AS monto "
+            "FROM pagos p JOIN ventas v ON v.id = p.venta_id "
+            "WHERE p.medio_pago_id = ? AND v.estado != 'anulada' AND v.cliente_id IS NOT NULL",
+            (medio_fiado_id,)).fetchall()
+        total: dict[int, Decimal] = {}
+        for f in filas:
+            total[f["cliente_id"]] = total.get(f["cliente_id"], Decimal("0")) + f["monto"]
+        return total
 
 
 def _fila_a_sesion(f: sqlite3.Row) -> CajaSesion:
@@ -564,3 +575,38 @@ class RepositorioDespiecesSQLite:
             usuario_id=fd["usuario_id"],
             id=fd["id"],
         )
+
+
+def _fila_a_abono_cliente(f: sqlite3.Row) -> AbonoCliente:
+    return AbonoCliente(
+        cliente_id=f["cliente_id"],
+        monto=f["monto"],
+        fecha=datetime.fromisoformat(f["fecha"]),
+        medio_pago_id=f["medio_pago_id"],
+        caja_sesion_id=f["caja_sesion_id"],
+        usuario_id=f["usuario_id"],
+        id=f["id"],
+    )
+
+
+class RepositorioCuentasCobrarSQLite:
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def guardar(self, abono: AbonoCliente) -> AbonoCliente:
+        cur = self._conn.execute(
+            "INSERT INTO abonos_cliente "
+            "(cliente_id, monto, fecha, medio_pago_id, caja_sesion_id, usuario_id) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (abono.cliente_id, abono.monto, abono.fecha.isoformat(), abono.medio_pago_id,
+             abono.caja_sesion_id, abono.usuario_id))
+        self._conn.commit()
+        return replace(abono, id=cur.lastrowid)
+
+    def abonos_por_cliente(self) -> dict[int, Decimal]:
+        filas = self._conn.execute(
+            "SELECT cliente_id, monto FROM abonos_cliente").fetchall()
+        total: dict[int, Decimal] = {}
+        for f in filas:
+            total[f["cliente_id"]] = total.get(f["cliente_id"], Decimal("0")) + f["monto"]
+        return total

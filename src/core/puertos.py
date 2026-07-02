@@ -6,8 +6,9 @@ from decimal import Decimal
 from typing import Protocol
 
 from core.entidades import (
-    CajaSesion, Categoria, Cliente, Compra, Despiece, Devolucion, Impuesto, LineaCompra, MedioPago,
-    MovimientoCaja, MovimientoInventario, Pago, Producto, Promocion, Proveedor, Usuario, Venta,
+    AbonoCliente, CajaSesion, Categoria, Cliente, Compra, Despiece, Devolucion, Impuesto,
+    LineaCompra, MedioPago, MovimientoCaja, MovimientoInventario, Pago, Producto, Promocion,
+    Proveedor, Usuario, Venta,
 )
 
 
@@ -89,6 +90,12 @@ class RepositorioVentas(Protocol):
     def ventas_en(self, desde: datetime, hasta: datetime) -> list[Venta]: ...
     def pagos_en(self, desde: datetime, hasta: datetime) -> list[Pago]: ...
     def ventas_de_sesion(self, caja_sesion_id: int) -> list[Venta]: ...
+    def fiado_por_cliente(self, medio_fiado_id: int) -> dict[int, Decimal]: ...
+
+
+class RepositorioCuentasCobrar(Protocol):
+    def guardar(self, abono: AbonoCliente) -> AbonoCliente: ...
+    def abonos_por_cliente(self) -> dict[int, Decimal]: ...
 
 
 class RepositorioCajaSesiones(Protocol):

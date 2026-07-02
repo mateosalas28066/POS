@@ -10,6 +10,7 @@ from core.perifericos.gs1 import FORMATO_PESO_DEFECTO, FormatoGS1
 from core.servicio_caja import ServicioCaja
 from core.servicio_clientes import ServicioClientes
 from core.servicio_compras import ServicioCompras
+from core.servicio_cuentas_cobrar import ServicioCuentasCobrar
 from core.servicio_despiece import ServicioDespiece
 from core.servicio_promociones import ServicioPromociones
 from core.servicio_proveedores import ServicioProveedores
@@ -24,9 +25,9 @@ from inventario.repositorio_sqlite import (
 )
 from ventas.repositorio_sqlite import (
     RepositorioCajaSesionesSQLite, RepositorioClientesSQLite, RepositorioComprasSQLite,
-    RepositorioDespiecesSQLite, RepositorioDevolucionesSQLite, RepositorioMediosPagoSQLite,
-    RepositorioMovimientosCajaSQLite, RepositorioProveedoresSQLite, RepositorioUsuariosSQLite,
-    RepositorioVentasSQLite,
+    RepositorioCuentasCobrarSQLite, RepositorioDespiecesSQLite, RepositorioDevolucionesSQLite,
+    RepositorioMediosPagoSQLite, RepositorioMovimientosCajaSQLite, RepositorioProveedoresSQLite,
+    RepositorioUsuariosSQLite, RepositorioVentasSQLite,
 )
 
 EFECTIVO_MEDIO_PAGO_ID = 1
@@ -61,6 +62,8 @@ class ContextoApp:
     svc_despiece: ServicioDespiece = None  # type: ignore[assignment]
     repo_compras: RepositorioComprasSQLite = None  # type: ignore[assignment]
     svc_compras: ServicioCompras = None  # type: ignore[assignment]
+    repo_cxc: RepositorioCuentasCobrarSQLite = None  # type: ignore[assignment]
+    svc_cxc: ServicioCuentasCobrar = None  # type: ignore[assignment]
     usuario_actual: Usuario | None = None
     formato_gs1: FormatoGS1 = FORMATO_PESO_DEFECTO
 
@@ -81,6 +84,9 @@ class ContextoApp:
         proveedores = RepositorioProveedoresSQLite(conn)
         despieces = RepositorioDespiecesSQLite(conn)
         compras = RepositorioComprasSQLite(conn)
+        cxc = RepositorioCuentasCobrarSQLite(conn)
+        servicio_caja = ServicioCaja(sesiones, ventas, EFECTIVO_MEDIO_PAGO_ID,
+                                     movimientos=movimientos_caja)
         return cls(
             conn=conn,
             repo_productos=productos, repo_categorias=categorias, repo_impuestos=impuestos,
@@ -89,8 +95,7 @@ class ContextoApp:
             svc_registro=ServicioRegistroVenta(ventas, inventario, promociones),
             svc_anulacion=ServicioAnulacion(ventas, inventario),
             svc_clientes=ServicioClientes(clientes),
-            svc_caja=ServicioCaja(sesiones, ventas, EFECTIVO_MEDIO_PAGO_ID,
-                                  movimientos=movimientos_caja),
+            svc_caja=servicio_caja,
             svc_devolucion=ServicioDevolucion(ventas, devoluciones, inventario),
             svc_reportes=ServicioReportes(ventas, devoluciones, inventario, sesiones,
                                           EFECTIVO_MEDIO_PAGO_ID,
@@ -107,6 +112,8 @@ class ContextoApp:
             svc_despiece=ServicioDespiece(despieces, inventario, productos),
             repo_compras=compras,
             svc_compras=ServicioCompras(compras, inventario, productos),
+            repo_cxc=cxc,
+            svc_cxc=ServicioCuentasCobrar(cxc, ventas, servicio_caja),
         )
 
     @classmethod

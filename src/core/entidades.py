@@ -375,3 +375,18 @@ class Promocion:
                 raise ValueError("promo por unidades requiere unidades_limite > 0")
             if self.unidades_restantes is None:
                 object.__setattr__(self, "unidades_restantes", self.unidades_limite)
+
+
+@dataclass(frozen=True)
+class AbonoCliente:
+    cliente_id: int
+    monto: Decimal
+    fecha: datetime
+    medio_pago_id: int
+    caja_sesion_id: int | None = None
+    usuario_id: int | None = None
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.monto <= CERO:
+            raise ValueError("el monto del abono debe ser positivo")
