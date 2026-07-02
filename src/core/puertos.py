@@ -7,7 +7,7 @@ from typing import Protocol
 
 from core.entidades import (
     CajaSesion, Categoria, Cliente, Devolucion, Impuesto, MedioPago,
-    MovimientoInventario, Pago, Producto, Promocion, Usuario, Venta,
+    MovimientoCaja, MovimientoInventario, Pago, Producto, Promocion, Usuario, Venta,
 )
 
 
@@ -76,6 +76,11 @@ class RepositorioCajaSesiones(Protocol):
     def por_id(self, id: int) -> CajaSesion | None: ...
     def abierta(self) -> CajaSesion | None: ...
     def listar(self) -> list[CajaSesion]: ...
+
+
+class RepositorioMovimientosCaja(Protocol):
+    def registrar(self, movimiento: MovimientoCaja) -> MovimientoCaja: ...
+    def de_sesion(self, caja_sesion_id: int) -> list[MovimientoCaja]: ...
 
 
 class RepositorioDevoluciones(Protocol):

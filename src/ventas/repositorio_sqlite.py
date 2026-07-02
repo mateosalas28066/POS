@@ -8,7 +8,8 @@ from datetime import datetime
 from decimal import Decimal
 
 from core.entidades import (
-    CajaSesion, Cliente, Devolucion, LineaDevolucion, LineaVenta, MedioPago, Pago, Usuario, Venta,
+    CajaSesion, Cliente, Devolucion, LineaDevolucion, LineaVenta, MedioPago,
+    MovimientoCaja, Pago, Usuario, Venta,
 )
 
 
@@ -247,6 +248,28 @@ class RepositorioCajaSesionesSQLite:
         filas = self._conn.execute(
             "SELECT * FROM caja_sesiones ORDER BY id").fetchall()
         return [_fila_a_sesion(f) for f in filas]
+
+
+class RepositorioMovimientosCajaSQLite:
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def registrar(self, m: MovimientoCaja) -> MovimientoCaja:
+        cur = self._conn.execute(
+            "INSERT INTO caja_movimientos (caja_sesion_id, usuario_id, tipo, monto, motivo, fecha) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (m.caja_sesion_id, m.usuario_id, m.tipo, m.monto, m.motivo, m.fecha.isoformat()))
+        self._conn.commit()
+        return replace(m, id=cur.lastrowid)
+
+    def de_sesion(self, caja_sesion_id: int) -> list[MovimientoCaja]:
+        filas = self._conn.execute(
+            "SELECT * FROM caja_movimientos WHERE caja_sesion_id = ? ORDER BY id",
+            (caja_sesion_id,)).fetchall()
+        return [MovimientoCaja(
+            caja_sesion_id=f["caja_sesion_id"], tipo=f["tipo"], monto=f["monto"],
+            motivo=f["motivo"], fecha=datetime.fromisoformat(f["fecha"]),
+            usuario_id=f["usuario_id"], id=f["id"]) for f in filas]
 
 
 def _fila_a_linea_dev(f: sqlite3.Row) -> LineaDevolucion:

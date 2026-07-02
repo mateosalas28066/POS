@@ -186,6 +186,31 @@ class Arqueo:
     esperado: Decimal
     contado: Decimal
     diferencia: Decimal
+    otros_ingresos: Decimal = CERO   # ingresos manuales de efectivo (base extra, etc.)
+    otros_egresos: Decimal = CERO    # egresos manuales (retiros, pagos desde caja)
+
+
+TIPOS_MOVIMIENTO_CAJA = ("ingreso", "egreso")
+
+
+@dataclass(frozen=True)
+class MovimientoCaja:
+    """Ingreso/egreso manual de efectivo dentro de una sesión de caja."""
+    caja_sesion_id: int
+    tipo: str          # "ingreso" o "egreso"
+    monto: Decimal     # siempre positivo; el signo lo da el tipo
+    motivo: str
+    fecha: datetime
+    usuario_id: int | None = None
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.tipo not in TIPOS_MOVIMIENTO_CAJA:
+            raise ValueError(f"tipo de movimiento inválido: {self.tipo!r}")
+        if self.monto <= CERO:
+            raise ValueError("monto debe ser positivo")
+        if not self.motivo.strip():
+            raise ValueError("el motivo es obligatorio")
 
 
 ESTADOS_DEVOLUCION = ("emitida",)

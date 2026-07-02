@@ -20,8 +20,8 @@ from inventario.repositorio_sqlite import (
     RepositorioInventarioSQLite, RepositorioProductosSQLite, RepositorioPromocionesSQLite,
 )
 from ventas.repositorio_sqlite import (
-    RepositorioCajaSesionesSQLite, RepositorioClientesSQLite,
-    RepositorioDevolucionesSQLite, RepositorioMediosPagoSQLite, RepositorioUsuariosSQLite,
+    RepositorioCajaSesionesSQLite, RepositorioClientesSQLite, RepositorioDevolucionesSQLite,
+    RepositorioMediosPagoSQLite, RepositorioMovimientosCajaSQLite, RepositorioUsuariosSQLite,
     RepositorioVentasSQLite,
 )
 
@@ -50,6 +50,7 @@ class ContextoApp:
     svc_usuarios: ServicioUsuarios = None            # type: ignore[assignment]
     repo_promociones: RepositorioPromocionesSQLite = None  # type: ignore[assignment]
     svc_promociones: ServicioPromociones = None            # type: ignore[assignment]
+    repo_movimientos_caja: RepositorioMovimientosCajaSQLite = None  # type: ignore[assignment]
     usuario_actual: Usuario | None = None
     formato_gs1: FormatoGS1 = FORMATO_PESO_DEFECTO
 
@@ -66,6 +67,7 @@ class ContextoApp:
         devoluciones = RepositorioDevolucionesSQLite(conn)
         usuarios = RepositorioUsuariosSQLite(conn)
         promociones = RepositorioPromocionesSQLite(conn)
+        movimientos_caja = RepositorioMovimientosCajaSQLite(conn)
         return cls(
             conn=conn,
             repo_productos=productos, repo_categorias=categorias, repo_impuestos=impuestos,
@@ -74,14 +76,18 @@ class ContextoApp:
             svc_registro=ServicioRegistroVenta(ventas, inventario, promociones),
             svc_anulacion=ServicioAnulacion(ventas, inventario),
             svc_clientes=ServicioClientes(clientes),
-            svc_caja=ServicioCaja(sesiones, ventas, EFECTIVO_MEDIO_PAGO_ID),
+            svc_caja=ServicioCaja(sesiones, ventas, EFECTIVO_MEDIO_PAGO_ID,
+                                  movimientos=movimientos_caja),
             svc_devolucion=ServicioDevolucion(ventas, devoluciones, inventario),
             svc_reportes=ServicioReportes(ventas, devoluciones, inventario, sesiones,
-                                          EFECTIVO_MEDIO_PAGO_ID),
+                                          EFECTIVO_MEDIO_PAGO_ID,
+                                          movimientos_caja=movimientos_caja,
+                                          productos=productos),
             repo_usuarios=usuarios,
             svc_usuarios=ServicioUsuarios(usuarios),
             repo_promociones=promociones,
             svc_promociones=ServicioPromociones(promociones),
+            repo_movimientos_caja=movimientos_caja,
         )
 
     @classmethod

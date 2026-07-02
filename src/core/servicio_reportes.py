@@ -8,7 +8,8 @@ from decimal import Decimal
 from core.calculos import calcular_arqueo
 from core.entidades import Arqueo, CajaSesion, MovimientoInventario, Venta
 from core.puertos import (
-    RepositorioCajaSesiones, RepositorioDevoluciones, RepositorioInventario, RepositorioVentas,
+    RepositorioCajaSesiones, RepositorioDevoluciones, RepositorioInventario,
+    RepositorioMovimientosCaja, RepositorioProductos, RepositorioVentas,
 )
 
 CERO = Decimal("0")
@@ -70,12 +71,16 @@ class ReporteCierre:
 class ServicioReportes:
     def __init__(self, ventas: RepositorioVentas, devoluciones: RepositorioDevoluciones,
                  inventario: RepositorioInventario, sesiones: RepositorioCajaSesiones,
-                 efectivo_medio_pago_id: int = 1) -> None:
+                 efectivo_medio_pago_id: int = 1, *,
+                 movimientos_caja: RepositorioMovimientosCaja | None = None,
+                 productos: RepositorioProductos | None = None) -> None:
         self._ventas = ventas
         self._devoluciones = devoluciones
         self._inventario = inventario
         self._sesiones = sesiones
         self._efectivo_id = efectivo_medio_pago_id
+        self._movimientos_caja = movimientos_caja
+        self._productos = productos
 
     def ventas(self, desde: datetime, hasta: datetime) -> ReporteVentas:
         vs = self._ventas.ventas_en(desde, hasta)
@@ -121,9 +126,12 @@ class ServicioReportes:
             raise SesionNoEncontrada(f"sesion de caja inexistente: {sesion_id}")
         por_medio = self._ventas.totales_por_medio(sesion_id)
         efectivo = por_medio.get(self._efectivo_id, CERO)
-        esperado = sesion.monto_inicial + efectivo
+        movs = self._movimientos_caja.de_sesion(sesion_id) if self._movimientos_caja else []
+        ingresos = sum((m.monto for m in movs if m.tipo == "ingreso"), CERO)
+        egresos = sum((m.monto for m in movs if m.tipo == "egreso"), CERO)
+        esperado = sesion.monto_inicial + efectivo + ingresos - egresos
         contado = sesion.monto_contado if sesion.monto_contado is not None else esperado
-        arqueo = calcular_arqueo(sesion.monto_inicial, efectivo, contado)
+        arqueo = calcular_arqueo(sesion.monto_inicial, efectivo, contado, ingresos, egresos)
         num_ventas = len(self._ventas.ventas_de_sesion(sesion_id))
         total_devoluciones = sum((d.total for d in self._devoluciones.de_sesion(sesion_id)), CERO)
         return ReporteCierre(sesion=sesion, arqueo=arqueo, por_medio=por_medio,
