@@ -10,6 +10,7 @@ from core.perifericos.gs1 import FORMATO_PESO_DEFECTO, FormatoGS1
 from core.servicio_caja import ServicioCaja
 from core.servicio_clientes import ServicioClientes
 from core.servicio_promociones import ServicioPromociones
+from core.servicio_proveedores import ServicioProveedores
 from core.servicio_reportes import ServicioReportes
 from core.servicio_usuarios import ServicioUsuarios
 from core.servicio_venta import (
@@ -21,8 +22,8 @@ from inventario.repositorio_sqlite import (
 )
 from ventas.repositorio_sqlite import (
     RepositorioCajaSesionesSQLite, RepositorioClientesSQLite, RepositorioDevolucionesSQLite,
-    RepositorioMediosPagoSQLite, RepositorioMovimientosCajaSQLite, RepositorioUsuariosSQLite,
-    RepositorioVentasSQLite,
+    RepositorioMediosPagoSQLite, RepositorioMovimientosCajaSQLite, RepositorioProveedoresSQLite,
+    RepositorioUsuariosSQLite, RepositorioVentasSQLite,
 )
 
 EFECTIVO_MEDIO_PAGO_ID = 1
@@ -51,6 +52,8 @@ class ContextoApp:
     repo_promociones: RepositorioPromocionesSQLite = None  # type: ignore[assignment]
     svc_promociones: ServicioPromociones = None            # type: ignore[assignment]
     repo_movimientos_caja: RepositorioMovimientosCajaSQLite = None  # type: ignore[assignment]
+    repo_proveedores: RepositorioProveedoresSQLite = None  # type: ignore[assignment]
+    svc_proveedores: ServicioProveedores = None  # type: ignore[assignment]
     usuario_actual: Usuario | None = None
     formato_gs1: FormatoGS1 = FORMATO_PESO_DEFECTO
 
@@ -68,6 +71,7 @@ class ContextoApp:
         usuarios = RepositorioUsuariosSQLite(conn)
         promociones = RepositorioPromocionesSQLite(conn)
         movimientos_caja = RepositorioMovimientosCajaSQLite(conn)
+        proveedores = RepositorioProveedoresSQLite(conn)
         return cls(
             conn=conn,
             repo_productos=productos, repo_categorias=categorias, repo_impuestos=impuestos,
@@ -88,6 +92,8 @@ class ContextoApp:
             repo_promociones=promociones,
             svc_promociones=ServicioPromociones(promociones),
             repo_movimientos_caja=movimientos_caja,
+            repo_proveedores=proveedores,
+            svc_proveedores=ServicioProveedores(proveedores),
         )
 
     @classmethod

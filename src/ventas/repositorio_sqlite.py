@@ -9,7 +9,7 @@ from decimal import Decimal
 
 from core.entidades import (
     CajaSesion, Cliente, Devolucion, LineaDevolucion, LineaVenta, MedioPago,
-    MovimientoCaja, Pago, Usuario, Venta,
+    MovimientoCaja, Pago, Proveedor, Usuario, Venta,
 )
 
 
@@ -399,3 +399,52 @@ class RepositorioUsuariosSQLite:
     def listar(self) -> list[Usuario]:
         filas = self._conn.execute("SELECT * FROM usuarios ORDER BY id").fetchall()
         return [_fila_a_usuario(f) for f in filas]
+
+
+def _fila_a_proveedor(f: sqlite3.Row) -> Proveedor:
+    return Proveedor(
+        identificacion=f["identificacion"],
+        nombre=f["nombre"],
+        contacto=f["contacto"],
+        bloqueado_edicion=bool(f["bloqueado_edicion"]),
+        id=f["id"],
+    )
+
+
+class RepositorioProveedoresSQLite:
+    _COLS = "identificacion, nombre, contacto, bloqueado_edicion"
+
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def guardar(self, proveedor: Proveedor) -> Proveedor:
+        cur = self._conn.execute(
+            f"INSERT INTO proveedores ({self._COLS}) VALUES (?, ?, ?, ?)",
+            (proveedor.identificacion, proveedor.nombre, proveedor.contacto,
+             int(proveedor.bloqueado_edicion)))
+        self._conn.commit()
+        return replace(proveedor, id=cur.lastrowid)
+
+    def por_id(self, id: int) -> Proveedor | None:
+        f = self._conn.execute("SELECT * FROM proveedores WHERE id = ?", (id,)).fetchone()
+        return _fila_a_proveedor(f) if f else None
+
+    def por_identificacion(self, identificacion: str) -> Proveedor | None:
+        f = self._conn.execute(
+            "SELECT * FROM proveedores WHERE identificacion = ?", (identificacion,)).fetchone()
+        return _fila_a_proveedor(f) if f else None
+
+    def listar(self) -> list[Proveedor]:
+        filas = self._conn.execute("SELECT * FROM proveedores ORDER BY id").fetchall()
+        return [_fila_a_proveedor(f) for f in filas]
+
+    def actualizar(self, proveedor: Proveedor) -> Proveedor:
+        cur = self._conn.execute(
+            "UPDATE proveedores SET identificacion = ?, nombre = ?, contacto = ?, "
+            "bloqueado_edicion = ? WHERE id = ?",
+            (proveedor.identificacion, proveedor.nombre, proveedor.contacto,
+             int(proveedor.bloqueado_edicion), proveedor.id))
+        if cur.rowcount == 0:
+            raise LookupError(f"proveedor inexistente: id={proveedor.id}")
+        self._conn.commit()
+        return proveedor
