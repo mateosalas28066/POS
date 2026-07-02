@@ -306,6 +306,39 @@ class Devolucion:
             raise ValueError(f"estado de devolución inválido: {self.estado!r}")
 
 
+@dataclass(frozen=True)
+class LineaDespiece:
+    producto_corte_id: int
+    peso: Decimal              # kg despiezados de este corte, siempre positivo
+    costo_asignado: Decimal    # porción del costo_canal asignada a este corte
+    costo_unit: Decimal        # costo_asignado / peso
+    despiece_id: int | None = None
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.peso <= CERO:
+            raise ValueError("peso debe ser positivo")
+        if self.costo_asignado < CERO or self.costo_unit < CERO:
+            raise ValueError("valores monetarios de LineaDespiece deben ser no negativos")
+
+
+@dataclass(frozen=True)
+class Despiece:
+    producto_canal_id: int
+    peso_canal: Decimal        # kg del canal que se despiezan (entrada consumida)
+    costo_canal: Decimal       # costo total a repartir entre los cortes
+    fecha: datetime
+    lineas: tuple[LineaDespiece, ...]
+    usuario_id: int | None = None
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.peso_canal <= CERO:
+            raise ValueError("peso_canal debe ser positivo")
+        if self.costo_canal < CERO:
+            raise ValueError("costo_canal no puede ser negativo")
+
+
 TIPOS_VALOR_PROMO = ("precio_fijo", "porcentaje")
 TIPOS_DURACION_PROMO = ("tiempo", "unidades", "manual")
 
