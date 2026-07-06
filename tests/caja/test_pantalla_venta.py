@@ -74,6 +74,63 @@ def test_escanear_codigo_normal_agrega_al_carrito():
     assert win._escaneo.text() == ""  # el campo se limpia tras escanear
 
 
+def test_scanner_serial_agrega_al_carrito():
+    class PuertoFake:
+        def __init__(self, datos: bytes) -> None:
+            self._datos = bytearray(datos)
+            self.cerrado = False
+
+        @property
+        def in_waiting(self) -> int:
+            return len(self._datos)
+
+        def read(self, n: int) -> bytes:
+            datos = bytes(self._datos[:n])
+            del self._datos[:n]
+            return datos
+
+        def close(self) -> None:
+            self.cerrado = True
+
+    _app = QApplication.instance() or QApplication([])
+    ctx = _ctx()
+    win = PantallaVenta(ctx)
+    win.al_mostrar()
+    win._scanner_serial = PuertoFake(b"7700006\r\n")
+    win._leer_scanner_serial()
+    assert win._carrito.rowCount() == 1
+    assert win._total_actual() == Decimal("2500")
+
+
+def test_scanner_serial_agrega_etiqueta_real_de_bascula():
+    class PuertoFake:
+        def __init__(self, datos: bytes) -> None:
+            self._datos = bytearray(datos)
+
+        @property
+        def in_waiting(self) -> int:
+            return len(self._datos)
+
+        def read(self, n: int) -> bytes:
+            datos = bytes(self._datos[:n])
+            del self._datos[:n]
+            return datos
+
+        def close(self) -> None:
+            pass
+
+    _app = QApplication.instance() or QApplication([])
+    ctx = _ctx()
+    win = PantallaVenta(ctx)
+    win.al_mostrar()
+    win._scanner_serial = PuertoFake(b"2400190008059\r\n")
+    win._leer_scanner_serial()
+    assert win._carrito.rowCount() == 1
+    assert win._carrito.item(0, 0).text() == "Ampolleta"
+    assert win._carrito.item(0, 1).text() == "0,805"
+    assert win._total_actual() == Decimal("24150")
+
+
 def test_cobro_registra_usuario_actual():
     _app = QApplication.instance() or QApplication([])
     ctx = _ctx()

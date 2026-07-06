@@ -14,6 +14,20 @@ def test_decodifica_codigo_y_peso():
     assert r.peso_kg == Decimal("1.234")
 
 
+def test_decodifica_etiqueta_prefijo_24_de_la_bascula():
+    r = decodificar_gs1("2400190008059")
+    assert r.codigo_producto == "00190"
+    assert r.peso_kg == Decimal("0.805")
+    assert r.valor_crudo == 805
+
+
+def test_decodifica_etiqueta_prefijo_24_pezuna():
+    r = decodificar_gs1("2400121004457")
+    assert r.codigo_producto == "00121"
+    assert r.peso_kg == Decimal("0.445")
+    assert r.valor_crudo == 445
+
+
 def test_digito_de_control_invalido_falla():
     with pytest.raises(ValueError):
         decodificar_gs1("2012340012340")  # último dígito incorrecto
@@ -46,6 +60,7 @@ def test_formato_por_defecto_es_peso():
 
 def test_es_peso_variable_detecta_prefijo_y_longitud():
     assert es_peso_variable("2012340012344") is True
+    assert es_peso_variable("2400190008059") is True
     assert es_peso_variable("7700006") is False        # longitud != 13
     assert es_peso_variable("3012340012344") is False  # prefijo no es "2"
     assert es_peso_variable("20123A0012344") is False   # no son solo dígitos

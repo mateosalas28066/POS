@@ -34,10 +34,14 @@ MANZANA = Producto(codigo_barras="A", nombre="Manzana", precio=Decimal("4000"),
 # PLU de balanza: codigo_barras de 5 dígitos que coincide con el embebido en la etiqueta GS1
 PESAJE = Producto(codigo_barras="01234", nombre="Carne", precio=Decimal("4000"),
                   vendido_por_peso=True, unidad="kg", impuesto_id=20, id=3)
+AMPOLLETA = Producto(codigo_barras="00190", nombre="Ampolleta", precio=Decimal("30000"),
+                     vendido_por_peso=True, unidad="kg", impuesto_id=20, id=4)
+PEZUNA = Producto(codigo_barras="00121", nombre="Pezuña de cerdo", precio=Decimal("10000"),
+                  vendido_por_peso=True, unidad="kg", impuesto_id=20, id=5)
 
 
 def _servicio() -> ServicioVenta:
-    return ServicioVenta(_FakeProductos(GASEOSA, MANZANA, PESAJE),
+    return ServicioVenta(_FakeProductos(GASEOSA, MANZANA, PESAJE, AMPOLLETA, PEZUNA),
                          _FakeImpuestos(IVA, EXCLUIDO))
 
 
@@ -97,6 +101,22 @@ def test_agregar_escaneado_peso_variable_agrega_por_peso():
     linea = s.agregar_escaneado("2012340012344")  # codigo 01234, 1.234 kg
     assert linea.cantidad_o_peso == Decimal("1.234")
     assert linea.subtotal == Decimal("4936")  # 4000 * 1.234
+
+
+def test_agregar_escaneado_etiqueta_real_prefijo_24():
+    s = _servicio()
+    linea = s.agregar_escaneado("2400190008059")  # codigo 00190, 0.805 kg
+    assert linea.descripcion == "Ampolleta"
+    assert linea.cantidad_o_peso == Decimal("0.805")
+    assert linea.subtotal == Decimal("24150")  # 30000 * 0.805
+
+
+def test_agregar_escaneado_etiqueta_real_pezuna_prefijo_24():
+    s = _servicio()
+    linea = s.agregar_escaneado("2400121004457")  # codigo 00121, 0.445 kg
+    assert linea.descripcion == "Pezuña de cerdo"
+    assert linea.cantidad_o_peso == Decimal("0.445")
+    assert linea.subtotal == Decimal("4450")  # 10000 * 0.445
 
 
 def test_agregar_escaneado_codigo_normal_agrega_unidad():

@@ -1,12 +1,16 @@
 """Widgets reutilizables. Solo composición Qt; estilo en tema.qss."""
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtCore import QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import QDoubleSpinBox, QFrame, QLabel, QSpinBox, QToolButton, QVBoxLayout
 
 from caja.formato import formato_moneda
 from core.entidades import Producto
+
+_DIR_PRODUCTOS = Path(__file__).resolve().parent / "recursos" / "productos"
 
 
 class SpinBoxPos(QSpinBox):
@@ -42,7 +46,8 @@ class SpinMoneda(DecimalSpinBoxPos):
 
 
 ANCHO_CARD = 150
-ALTO_CARD = 140
+ALTO_CARD = 200
+TAM_IMAGEN = QSize(130, 72)
 
 
 class TarjetaProducto(QFrame):
@@ -69,6 +74,9 @@ class TarjetaProducto(QFrame):
         cat.setObjectName("secundario")
 
         layout = QVBoxLayout(self)
+        imagen = self._cargar_imagen(producto.codigo_barras)
+        if imagen is not None:
+            layout.addWidget(imagen)
         layout.addWidget(nombre)
         layout.addWidget(precio)
         layout.addWidget(cat)
@@ -78,6 +86,22 @@ class TarjetaProducto(QFrame):
         if agotado:
             badge = QLabel("Agotado"); badge.setObjectName("badge-agotado")
             layout.addWidget(badge)
+
+    @staticmethod
+    def _cargar_imagen(codigo_barras: str) -> QLabel | None:
+        """QLabel con la foto .ico del producto, o None si no hay archivo/es inválida."""
+        ruta = _DIR_PRODUCTOS / f"{codigo_barras}.ico"
+        if not ruta.exists():
+            return None
+        pixmap = QPixmap(str(ruta))
+        if pixmap.isNull():
+            return None
+        etiqueta = QLabel()
+        etiqueta.setObjectName("foto-producto")
+        etiqueta.setAlignment(Qt.AlignCenter)
+        etiqueta.setPixmap(pixmap.scaled(
+            TAM_IMAGEN, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        return etiqueta
 
     def _emitir(self) -> None:
         if not self._agotado:

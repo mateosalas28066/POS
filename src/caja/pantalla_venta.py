@@ -1,10 +1,11 @@
 """Pantalla de venta: catálogo (izq) + carrito (der). Lógica en ServicioVenta."""
 from __future__ import annotations
 
+import os
 from datetime import datetime
 from decimal import Decimal
 
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtCore import QTimer, Qt, Signal, Slot
 from PySide6.QtWidgets import (
     QComboBox, QGridLayout, QHBoxLayout, QInputDialog, QLabel, QLineEdit,
     QMessageBox, QPushButton, QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
@@ -77,6 +78,12 @@ class PantallaVenta(QWidget):
         self._escaneo.setObjectName("escaneo")
         self._escaneo.setPlaceholderText("Escanear…")
         self._escaneo.returnPressed.connect(self._procesar_escaneo)
+        self._scanner_serial = None
+        self._scanner_serial_buffer = bytearray()
+        self._scanner_timer = QTimer(self)
+        self._scanner_timer.setInterval(50)
+        self._scanner_timer.timeout.connect(self._leer_scanner_serial)
+        self._iniciar_scanner_serial()
 
         self._combo_cliente = QComboBox()
         self._combo_cliente.currentIndexChanged.connect(self._al_cambiar_cliente)
@@ -110,6 +117,44 @@ class PantallaVenta(QWidget):
         self._cargar_clientes()
         self._refrescar_carrito()
         self._escaneo.setFocus()
+
+    def _iniciar_scanner_serial(self) -> None:
+        puerto = os.environ.get("POS_SCANNER_PORT") or os.environ.get("POS_SCANNER_SERIAL_PORT")
+        if not puerto:
+            return
+        baud = int(os.environ.get("POS_SCANNER_BAUD", "9600"))
+        try:
+            import serial  # type: ignore[import-not-found]
+
+            self._scanner_serial = serial.Serial(puerto, baudrate=baud, timeout=0)
+        except Exception as exc:  # noqa: BLE001 - error visible al cajero
+            self._estado.setText(f"No se pudo abrir scanner {puerto}: {exc}")
+            return
+        self._scanner_timer.start()
+
+    @Slot()
+    def _leer_scanner_serial(self) -> None:
+        if self._scanner_serial is None:
+            return
+        try:
+            disponibles = getattr(self._scanner_serial, "in_waiting", 0)
+            datos = self._scanner_serial.read(disponibles or 1)
+        except Exception as exc:  # noqa: BLE001 - desconexión/cable suelto
+            self._scanner_timer.stop()
+            self._estado.setText(f"Scanner serial desconectado: {exc}")
+            return
+        if not datos:
+            return
+        self._scanner_serial_buffer.extend(datos)
+        normalizado = bytes(self._scanner_serial_buffer).replace(b"\r", b"\n")
+        if b"\n" not in normalizado:
+            return
+        partes = normalizado.split(b"\n")
+        self._scanner_serial_buffer = bytearray(partes[-1])
+        for parte in partes[:-1]:
+            codigo = parte.decode("ascii", errors="ignore").strip()
+            if codigo:
+                self._procesar_codigo_escaneado(codigo)
 
     def _cargar_clientes(self) -> None:
         self._combo_cliente.blockSignals(True)
@@ -226,6 +271,9 @@ class PantallaVenta(QWidget):
         self._escaneo.clear()
         if not codigo:
             return
+        self._procesar_codigo_escaneado(codigo)
+
+    def _procesar_codigo_escaneado(self, codigo: str) -> None:
         try:
             self._venta.agregar_escaneado(codigo, self._ctx.formato_gs1)
         except (ProductoNoEncontrado, PesoRequerido, ValueError) as exc:
@@ -235,6 +283,12 @@ class PantallaVenta(QWidget):
         self._estado.setText("")
         self._refrescar_carrito()
         self._escaneo.setFocus()
+
+    def closeEvent(self, event) -> None:  # noqa: N802 - API Qt
+        self._scanner_timer.stop()
+        if self._scanner_serial is not None:
+            self._scanner_serial.close()
+        super().closeEvent(event)
 
     def _refrescar_carrito(self) -> None:
         lineas = self._venta.lineas

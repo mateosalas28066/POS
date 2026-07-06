@@ -11,6 +11,8 @@ ADMIN_POR_DEFECTO = ("admin", "admin1234")
 
 # (codigo_barras, nombre, precio, categoria_nombre, impuesto_nombre, vendido_por_peso, unidad, stock)
 _PRODUCTOS_DEMO = [
+    ("00190", "Ampolleta", "30000", "Carnes", "IVA 0%", 1, "kg", "20"),
+    ("00121", "Pezuña de cerdo", "10000", "Carnes", "IVA 0%", 1, "kg", "20"),
     ("7700001", "Pechuga de pollo", "18900", "Carnes", "IVA 0%", 1, "kg", "25"),
     ("7700002", "Carne molida", "22000", "Carnes", "IVA 0%", 1, "kg", "18"),
     ("7700003", "Manzana roja", "6500", "Frutas", "IVA 0%", 1, "kg", "40"),

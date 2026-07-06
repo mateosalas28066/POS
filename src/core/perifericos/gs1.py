@@ -17,6 +17,9 @@ class FormatoGS1:
 
 
 FORMATO_PESO_DEFECTO = FormatoGS1()
+FORMATO_PESO_PREFIJO_24 = FormatoGS1(
+    prefijos=("24",), ini_codigo=2, fin_codigo=7, ini_valor=7, fin_valor=12,
+)
 
 
 @dataclass(frozen=True)
@@ -33,14 +36,35 @@ def _digito_control_ean13(doce: str) -> int:
 
 def es_peso_variable(codigo: str, formato: FormatoGS1 = FORMATO_PESO_DEFECTO) -> bool:
     """¿El código escaneado es un EAN-13 de peso variable (etiqueta de balanza)?"""
-    return len(codigo) == 13 and codigo.isdigit() and codigo[0] in formato.prefijos
+    return (
+        len(codigo) == 13
+        and codigo.isdigit()
+        and any(
+            codigo.startswith(prefijo)
+            for candidato in _formatos_candidatos(formato)
+            for prefijo in candidato.prefijos
+        )
+    )
+
+
+def _formatos_candidatos(formato: FormatoGS1) -> tuple[FormatoGS1, ...]:
+    if formato == FORMATO_PESO_DEFECTO:
+        return (FORMATO_PESO_PREFIJO_24, formato)
+    return (formato,)
+
+
+def _formato_para(codigo: str, formato: FormatoGS1) -> FormatoGS1:
+    for candidato in _formatos_candidatos(formato):
+        if any(codigo.startswith(prefijo) for prefijo in candidato.prefijos):
+            return candidato
+    prefijos = ", ".join(repr(p) for p in formato.prefijos)
+    raise ValueError(f"prefijo de {codigo!r} no es de peso variable ({prefijos})")
 
 
 def decodificar_gs1(codigo: str, formato: FormatoGS1 = FORMATO_PESO_DEFECTO) -> ResultadoGS1:
     if len(codigo) != 13 or not codigo.isdigit():
         raise ValueError(f"EAN-13 inválido: {codigo!r}")
-    if codigo[0] not in formato.prefijos:
-        raise ValueError(f"prefijo {codigo[0]!r} no es de peso variable")
+    formato = _formato_para(codigo, formato)
     if _digito_control_ean13(codigo[:12]) != int(codigo[12]):
         raise ValueError("dígito de control EAN-13 incorrecto")
     crudo = codigo[formato.ini_valor:formato.fin_valor]

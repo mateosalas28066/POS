@@ -9,7 +9,7 @@ from decimal import Decimal  # noqa: E402
 
 from PySide6.QtCore import Qt  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
-from PySide6.QtWidgets import QApplication  # noqa: E402
+from PySide6.QtWidgets import QApplication, QLabel  # noqa: E402
 
 from core.entidades import Producto  # noqa: E402
 from caja.widgets import SpinMoneda, TarjetaProducto, TarjetaKpi, BotonRail  # noqa: E402
@@ -58,6 +58,26 @@ def test_tarjeta_producto_agotada_no_emite_ni_es_clickeable():
     tarjeta._emitir()
     assert recibido == []
     assert tarjeta.property("agotado") is True
+
+
+def _fotos(tarjeta):
+    return [w for w in tarjeta.findChildren(QLabel) if w.objectName() == "foto-producto"]
+
+
+def test_tarjeta_producto_con_ico_muestra_imagen():
+    _app = QApplication.instance() or QApplication([])
+    # 7700003 = Manzana roja: tiene recursos/productos/7700003.ico
+    p = Producto(codigo_barras="7700003", nombre="Manzana roja", precio=Decimal("6500"), id=1)
+    tarjeta = TarjetaProducto(p, "Frutas")
+    fotos = _fotos(tarjeta)
+    assert len(fotos) == 1 and not fotos[0].pixmap().isNull()
+
+
+def test_tarjeta_producto_sin_ico_no_falla_ni_muestra_imagen():
+    _app = QApplication.instance() or QApplication([])
+    p = Producto(codigo_barras="SIN_ICO_XYZ", nombre="X", precio=Decimal("100"), id=2)
+    tarjeta = TarjetaProducto(p)
+    assert _fotos(tarjeta) == []
 
 
 def test_tarjeta_producto_en_promo_marca_propiedad():
