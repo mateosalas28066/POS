@@ -226,15 +226,18 @@ El nuevo documento pide, textualmente: **inventario en la nube con sincronizaci�
 **traslados con permiso (cortes y canal/bruto)**, **adelantos de nómina (caja)**, y **reportes por
 almacén / total / por cajero y categoría dentro del almacén**. Análisis:
 
-### 8.1 Inventario en la nube + sincronización entre locales ⛔ (mayor esfuerzo)
-- **Hoy:** SQLite local, un solo almacén implícito, sin `almacen_id` en ninguna tabla ni entidad.
-- **Falta:**
-  1. Concepto de **Almacén/Local** (entidad + tabla + `almacen_id` en productos-stock, movimientos,
-     ventas, sesiones, compras, gastos).
-  2. **Backend en la nube** (hoy no existe ningún servidor; la ruta a PostgreSQL está mencionada pero
-     no implementada).
-  3. **Sincronización**: `src/sync_pdv/` (patrón outbox) está diseñado pero **vacío**. Hay que definir
-     transporte, resolución de conflictos, identidad por local, y qué es maestro vs. réplica.
+### 8.1 Inventario en la nube + sincronización entre locales 🟡 (Fase 0+1 implementadas, 2026-07-06)
+- **Hoy:** el POS sigue en SQLite local (un almacén implícito), pero ya existen los cimientos nube:
+  1. **Almacén/Local en la nube**: repo `w:\pos-plataforma-web` con esquema Supabase Postgres
+     (`locales`, `almacenes`, `almacen_id` transversal en ventas/líneas/pagos/sesiones/movimientos).
+  2. **Backend en la nube**: FastAPI que reusa el paquete `core` (`pos-core` vía pip), con
+     `/sync/push` idempotente por uuid y `/dashboard/*` (total/por almacén/por cajero/por categoría)
+     sobre `ServicioReportes`. Auth: token por local (POS) + JWT Supabase vía JWKS (web).
+  3. **Sincronización**: `src/sync_pdv/` implementa outbox (`eventos_sync`, migración 011),
+     `serializar_venta`, `ClienteSync` + `TransporteHTTP`; `ServicioRegistroVentaConOutbox`
+     encola cada venta si hay `LOCAL_ID`/`ALMACEN_ID` en el entorno (sin ellos, offline puro).
+- **Falta aún** (Fases 2-4): `/sync/pull` (réplica RO de catálogo), `almacen_id` dentro del POS
+  local, traslados, conversión bruto→cortes multi-almacén, resolución de conflictos avanzada.
 - **Costura existente:** el aislamiento hexagonal permite añadir un `RepositorioX` remoto/sincronizable
   sin tocar `core/`. El `stock_de` se calcula desde movimientos (no un contador mutable), lo que ayuda
   a reconstruir stock por almacén.

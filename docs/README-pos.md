@@ -17,7 +17,7 @@ y facturación electrónica DIAN mañana.
 | `src/ventas/` | Persistencia no-UI del ciclo venta/caja: clientes, medios de pago, ventas, pagos, sesiones de caja (adaptadores SQLite). | Tablas transaccionales del PDV |
 | `src/caja/` | UI Qt: login, venta (cliente + descuento), clientes, cobro, devoluciones, cierre/arqueo, reportes (período/factura/cajero), usuarios/roles. | Capa de caja/PDV (terminal) de Siesa |
 | `src/facturacion_dian/` | Puerto `EmisorDIAN` + adaptadores (stub hoy, proveedor después). | Capa de facturación electrónica / e-Invoicing |
-| `src/sync_pdv/` | Patrón outbox para multi-local (diseñado, no implementado a fondo). | Transmisión/recepción PDV almacén de Siesa |
+| `src/sync_pdv/` | Outbox local (`eventos_sync`) + `ClienteSync`/`TransporteHTTP`: push de ventas a la nube, idempotente por uuid (pull de catálogo = Fase 2). | Transmisión/recepción PDV almacén de Siesa |
 | `scripts/` | Migraciones, seed de datos, utilidades CLI. | — |
 | `tests/` | Pruebas por módulo (pytest), estructura espejo de `src/`. | — |
 | `docs/` | Documentación funcional y técnica (este índice). | — |
@@ -53,10 +53,11 @@ y facturación electrónica DIAN mañana.
 | FASE2 | Proveedores y Compras: maestro `Proveedor` + `ServicioProveedores` + `PantallaProveedores`; `Compra`/`LineaCompra` + `ServicioCompras` (alimenta stock y actualiza costo); despiece con costeo por valor de venta (`ServicioDespiece` + `prorratear_costeo_despiece`, prorrateo del costo del canal entre cortes, fallback por peso); migración 008; `PantallaCompras`/`PantallaDespiece` + pestaña "Compras" en reportes (`ServicioReportes.compras`/`compras_por_proveedor`) ([spec+plan](superpowers/specs/2026-07-01-fases-2-3-4-compras-cuentas-gastos-design.md)) | ✅ implementado |
 | FASE3 | Cuentas por cobrar (fiado) y por pagar: saldo global por cliente/proveedor (Σ deuda − Σ abonos/pagos); `ServicioCuentasCobrar` (`AbonoCliente`, medio 4 Crédito/Fiado) y `ServicioCuentasPagar` (`PagoProveedor`, sobre compras a crédito); todo efectivo pasa por caja (abono→ingreso, pago→egreso); migración 009; `PantallaCuentas` (2 pestañas) + `DialogoAbonoPago` + medio Fiado en el cobro solo para cliente identificado ([spec+plan](superpowers/specs/2026-07-01-fases-2-3-4-compras-cuentas-gastos-design.md)) | ✅ implementado |
 | FASE4 | Gastos y reporte mensual consolidado: `CategoriaGasto` (lista fija administrable con seed) + `Gasto` + `ServicioGastos` (efectivo→egreso de caja); migración 010; `PantallaGastos` (registrar + listar + administrar categorías solo admin); reporte mensual `ServicioReportes.mensual` (ventas/compras/gastos/saldos CxC/CxP) + pestaña "Mensual" ([spec+plan](superpowers/specs/2026-07-01-fases-2-3-4-compras-cuentas-gastos-design.md)) | ✅ implementado |
-| E8 | Sync offline/outbox | pendiente |
+| NUBE0/1 | Plataforma web multi-local Fase 0+1: `core` empaquetado como `pos-core` (pip installable, import `core`); outbox local (`eventos_sync`, migración 011, `RepositorioOutboxSQLite` + `serializar_venta`), `ServicioRegistroVentaConOutbox` (serializador inyectado) y `ClienteSync`/`TransporteHTTP` en `sync_pdv/`; cableado opcional por `LOCAL_ID`/`ALMACEN_ID`. Repo hermano `w:\pos-plataforma-web`: backend FastAPI + Supabase Postgres (`almacen_id` transversal, `/sync/push` idempotente por uuid, `/dashboard/*` reusando `ServicioReportes`, auth local-token + JWT JWKS) y frontend React con login Supabase y dashboard multi-bodega ([spec](superpowers/specs/2026-07-06-plataforma-web-multi-local-design.md) · [plan](superpowers/plans/2026-07-06-plataforma-web-fase-0-1.md)) | ✅ implementado (Fase 0+1) |
+| E8 | Sync offline/outbox (push de ventas ✅ vía NUBE0/1; pull de catálogo y conflictos = Fase 2) | 🟡 parcial |
 | DIAN | Facturación electrónica (stub → proveedor) | pendiente |
 
-Suite: **395 passed** (`python -m pytest -q`, 2026-07-02).
+Suite: **412 passed** (`python -m pytest -q`, 2026-07-06).
 
 **Seguridad:** `caja.bootstrap.sembrar_admin` siembra un usuario `admin`/`admin1234` si no
 hay usuarios en la base. Esa contraseña por defecto debe cambiarse antes de desplegar en
