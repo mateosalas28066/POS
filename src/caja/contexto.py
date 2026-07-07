@@ -75,9 +75,10 @@ class ContextoApp:
     svc_gastos: ServicioGastos = None  # type: ignore[assignment]
     usuario_actual: Usuario | None = None
     formato_gs1: FormatoGS1 = FORMATO_PESO_DEFECTO
+    hilo_sync: HiloSincronizacion | None = None  # type: ignore[assignment]
 
     @classmethod
-    def desde_conn(cls, conn: sqlite3.Connection) -> "ContextoApp":
+    def desde_conn(cls, conn: sqlite3.Connection, ruta_db: str | None = None) -> "ContextoApp":
         productos = RepositorioProductosSQLite(conn)
         categorias = RepositorioCategoriasSQLite(conn)
         impuestos = RepositorioImpuestosSQLite(conn)
@@ -106,12 +107,28 @@ class ContextoApp:
         # en el outbox para sync con la nube; sin ellos el POS opera offline puro.
         local_id = os.environ.get("LOCAL_ID")
         almacen_id = os.environ.get("ALMACEN_ID")
+        hilo_sync = None
         if local_id and almacen_id:
             from core.servicio_venta import ServicioRegistroVentaConOutbox
             from sync_pdv.outbox import RepositorioOutboxSQLite, serializar_venta
             svc_registro = ServicioRegistroVentaConOutbox(
                 svc_registro, RepositorioOutboxSQLite(conn),
                 int(almacen_id), local_id, serializar=serializar_venta)
+            # Con SYNC_URL + LOCAL_TOKEN además, arranca el push periódico en background.
+            # Requiere ruta_db real (no ":memory:"): el hilo abre su propia conexión al
+            # mismo archivo, ya que sqlite3.Connection no es segura entre hilos.
+            sync_url = os.environ.get("SYNC_URL")
+            local_token = os.environ.get("LOCAL_TOKEN")
+            if sync_url and local_token and ruta_db and ruta_db != ":memory:":
+                from inventario.db import conectar as conectar_sqlite
+                from sync_pdv.cliente import ClienteSync, TransporteHTTP
+                from sync_pdv.hilo_sincronizacion import HiloSincronizacion
+                conn_hilo = conectar_sqlite(ruta_db)
+                cliente_sync = ClienteSync(RepositorioOutboxSQLite(conn_hilo),
+                                          TransporteHTTP(sync_url, local_id, local_token))
+                intervalo = float(os.environ.get("SYNC_INTERVALO_SEGUNDOS", "30"))
+                hilo_sync = HiloSincronizacion(cliente_sync, intervalo)
+                hilo_sync.iniciar()
         return cls(
             conn=conn,
             repo_productos=productos, repo_categorias=categorias, repo_impuestos=impuestos,
@@ -145,11 +162,12 @@ class ContextoApp:
             repo_categorias_gasto=categorias_gasto,
             repo_gastos=gastos,
             svc_gastos=ServicioGastos(gastos, categorias_gasto, servicio_caja),
+            hilo_sync=hilo_sync,
         )
 
     @classmethod
     def crear(cls, ruta_db: str = "pos.db") -> "ContextoApp":
-        return cls.desde_conn(preparar_db(ruta_db))
+        return cls.desde_conn(preparar_db(ruta_db), ruta_db=ruta_db)
 
     @property
     def usuario_actual_id(self) -> int | None:
