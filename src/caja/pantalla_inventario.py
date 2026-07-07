@@ -4,7 +4,8 @@ from __future__ import annotations
 from PySide6.QtCore import Slot
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
-    QHBoxLayout, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
+    QHBoxLayout, QLineEdit, QMessageBox, QPushButton, QTableWidget, QTableWidgetItem,
+    QVBoxLayout, QWidget,
 )
 
 from datetime import datetime, timezone
@@ -171,6 +172,13 @@ class PantallaInventario(QWidget):
 
     def _aplicar_traslado(self, producto_id: int, cantidad, destino_id: int, ref) -> None:
         origen_id = int(self._ctx.almacen_id)
+        if destino_id == origen_id:
+            QMessageBox.warning(self, "Traslado", "El destino no puede ser la ubicación de origen.")
+            return
+        # Nota (fase NUBE2): el ledger multi-ubicación (movimientos_ubicacion) es una vista
+        # sembrada desde la nube y está desacoplado de la columna "Stock" de esta tabla
+        # (que usa el stock operativo legacy). Registrar un traslado NO mueve esa columna;
+        # el stock por ubicación se consulta en la web. Ver README-pos fila NUBE2·OlaB.
         movs = plan_traslado(producto_id, cantidad, origen_id=origen_id,
                              destino_id=destino_id, fecha=datetime.now(timezone.utc))
         for m in movs:
