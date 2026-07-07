@@ -80,6 +80,8 @@ class ContextoApp:
     repo_outbox: object | None = None            # outbox para eventos de catálogo (si hay sync)
     repo_replica: object | None = None           # réplica RO (novedades de precio de la nube)
     local_id: str | None = None
+    almacen_id: str | None = None
+    repo_movimientos_ubicacion: object | None = None   # inventario multi-ubicacion (si hay sync)
 
     @classmethod
     def desde_conn(cls, conn: sqlite3.Connection, ruta_db: str | None = None) -> "ContextoApp":
@@ -115,8 +117,12 @@ class ContextoApp:
         repo_productos_venta = productos
         repo_outbox = None
         repo_replica = None
+        repo_movimientos_ubicacion = None
         if local_id and almacen_id:
             from core.servicio_venta import ServicioRegistroVentaConOutbox
+            from inventario.repositorio_ubicaciones_sqlite import (
+                RepositorioMovimientosUbicacionSQLite,
+            )
             from sync_pdv.outbox import RepositorioOutboxSQLite, serializar_venta
             from sync_pdv.replica import (
                 RepositorioProductosConReplica, RepositorioReplicaSQLite,
@@ -128,6 +134,7 @@ class ContextoApp:
             # La venta lee el precio de la réplica RO del catálogo (fallback al local).
             repo_replica = RepositorioReplicaSQLite(conn)
             repo_productos_venta = RepositorioProductosConReplica(productos, repo_replica)
+            repo_movimientos_ubicacion = RepositorioMovimientosUbicacionSQLite(conn)
             # Con SYNC_URL + LOCAL_TOKEN además, arranca el push periódico en background.
             # Requiere ruta_db real (no ":memory:"): el hilo abre su propia conexión al
             # mismo archivo, ya que sqlite3.Connection no es segura entre hilos.
@@ -141,7 +148,9 @@ class ContextoApp:
                 cliente_sync = ClienteSync(
                     RepositorioOutboxSQLite(conn_hilo),
                     TransporteHTTP(sync_url, local_id, local_token),
-                    replica=RepositorioReplicaSQLite(conn_hilo), local_id=local_id)
+                    replica=RepositorioReplicaSQLite(conn_hilo), local_id=local_id,
+                    repo_movimientos=RepositorioMovimientosUbicacionSQLite(conn_hilo),
+                    ubicaciones=[int(almacen_id)])
                 intervalo = float(os.environ.get("SYNC_INTERVALO_SEGUNDOS", "30"))
                 hilo_sync = HiloSincronizacion(cliente_sync, intervalo)
                 hilo_sync.iniciar()
@@ -183,6 +192,8 @@ class ContextoApp:
             repo_outbox=repo_outbox,
             repo_replica=repo_replica,
             local_id=local_id,
+            almacen_id=almacen_id,
+            repo_movimientos_ubicacion=repo_movimientos_ubicacion,
         )
 
     @classmethod
@@ -208,3 +219,12 @@ class ContextoApp:
         ahora = datetime.now(timezone.utc).isoformat()
         self.repo_outbox.encolar(serializar_overlay(
             self.local_id, producto.id, producto.precio, producto.costo, True, ahora))
+
+    def encolar_movimiento(self, mov: dict) -> None:
+        """El admin registró o confirmó un movimiento de inventario multi-ubicación:
+        encola el evento para que el push lo suba a la nube. No-op si el POS es
+        offline puro (sin LOCAL_ID/ALMACEN_ID)."""
+        if self.repo_outbox is None or not self.local_id or not self.almacen_id:
+            return
+        from sync_pdv.outbox import serializar_movimiento
+        self.repo_outbox.encolar(serializar_movimiento(mov, int(self.almacen_id), self.local_id))
