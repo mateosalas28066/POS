@@ -23,8 +23,8 @@ empuja sus operaciones a la nube y baja una réplica de solo lectura del catálo
 | Conectividad | **Offline-first**: el POS debe vender sin internet por horas y sincronizar al reconectar. |
 | Stack | **React (Vercel) + FastAPI que reusa `core/` (Render/Railway/Fly) + Supabase (Postgres + Auth)**. Portable; free tier para la prueba, misma arquitectura en producción. |
 | `core/` | Se extrae a un **paquete Python compartido** que consumen el POS y el backend nube (no monorepo). |
-| Inventario | **Gestión pura, sin cálculos de costo.** Se elimina el despiece/costeo actual del POS. |
-| Bodegas | Entrada/salida/conversión/traslado se operan **solo desde la web**. |
+| Inventario | **Gestión pura, sin cálculos de costo.** Se elimina el despiece/costeo actual del POS (en Fase 4). |
+| Bodegas | Entrada/salida/conversión/traslado. **Actualizado en Fase 2 (NUBE2):** se operan desde la web **y desde el POS** (admin), y las **bodegas son compartidas** con traslados incl. cross-local — ver [2026-07-07-plataforma-web-fase-2-catalogo-inventario-design.md](2026-07-07-plataforma-web-fase-2-catalogo-inventario-design.md). |
 | Pagos (CxC/CxP) | Gestionables **desde la web y desde el POS**. |
 
 ## 3. Arquitectura en 3 capas
@@ -63,6 +63,10 @@ La **partición por dominio** hace el sync casi sin conflictos:
 | **POS → nube** (append-only) | ventas, pagos, movimientos de caja, arqueos, devoluciones, adelantos, abonos/pagos CxC-CxP | cada local es dueño de lo suyo | ninguno |
 | **Nube → POS** (réplica RO) | productos, precios, impuestos, categorías, clientes, promociones, usuarios | nube es maestro | ninguno (nube gana) |
 
+> **Fase 2 (NUBE2)** vuelve el catálogo **bidireccional** (el admin también edita desde el POS): sync
+> híbrido (catálogo por snapshot, inventario por delta append-only) con **last-write-wins por fila**
+> vía `actualizado_en`, partición por local. Detalle en el spec de Fase 2.
+
 - **Outbox**: cada evento lleva `uuid + local_id + timestamp`. El backend hace *upsert* por `uuid` →
   reenviar es idempotente. `/sync/push` recibe lotes; `/sync/pull?cursor=…` entrega cambios del catálogo.
 - **Identidad**: cada local tiene `local_id` + token de servicio.
@@ -73,7 +77,8 @@ La **partición por dominio** hace el sync casi sin conflictos:
 
 **`almacen_id` es transversal.** Nuevas tablas/campos respecto a la auditoría:
 
-- `almacenes` (bodegas): id, nombre, local_id, activo.
+- `almacenes` (bodegas): id, nombre, local_id, activo. **Fase 2 (NUBE2) lo generaliza a `ubicaciones`**
+  (`tipo 'bodega'|'local'`, `local_id` NULL para bodega compartida) — ver el spec de Fase 2.
 - `almacen_id` en: `inventario_movimientos`, `ventas`, `caja_sesiones`, `compras`, `gastos`,
   `promociones` (si aplica por local).
 - Stock por bodega: se **reconstruye desde `inventario_movimientos`** filtrando por `almacen_id`
@@ -127,7 +132,7 @@ llevada al backend con `almacen_id`.
 |---|---|---|
 | **0** | Extraer `core` compartido; backend FastAPI + Supabase (esquema con `almacen_id`); shell React + auth; identidad de locales | Cimientos |
 | **1** | Ingest de eventos del POS (push/outbox) + **dashboard de reportes multi-bodega** | ⭐ Primera demo para el cliente |
-| **2** | Catálogo + inventario multi-bodega en la nube (entrada/salida/conversión/traslado + confirmación); POS baja réplica RO; precios/productos editables desde la web | Requisito núcleo |
+| **2** | Catálogo + inventario multi-bodega en la nube (entrada/salida/conversión/traslado + confirmación); POS baja réplica RO; precios/productos editables desde la web **y desde el POS (admin)** → spec propio: [2026-07-07-plataforma-web-fase-2-catalogo-inventario-design.md](2026-07-07-plataforma-web-fase-2-catalogo-inventario-design.md) | Requisito núcleo |
 | **3** | Compras/proveedores/cuentas (CxC-CxP desde web y POS)/CRM + adelantos de nómina consolidados | Gestión completa |
 | **4** | Adelgazar el POS (quitar módulos migrados, incl. despiece/costeo) + endurecer sync/conflictos | Modelo "A" limpio |
 
