@@ -10,15 +10,19 @@ from sync_pdv.outbox import RepositorioOutboxSQLite
 class TransporteSync(Protocol):
     def push(self, eventos: list[dict]) -> list[str]: ...
     def pull_catalogo(self, local_id: str) -> dict: ...
+    def pull_inventario(self, ubicacion_id: int, desde: str | None) -> dict: ...
 
 
 class ClienteSync:
     def __init__(self, outbox: RepositorioOutboxSQLite, transporte: TransporteSync,
-                 replica=None, local_id: str | None = None) -> None:
+                 replica=None, local_id: str | None = None,
+                 repo_movimientos=None, ubicaciones: list[int] | None = None) -> None:
         self._outbox = outbox
         self._transporte = transporte
         self._replica = replica
         self._local_id = local_id
+        self._repo_movimientos = repo_movimientos
+        self._ubicaciones = ubicaciones or []
 
     def sincronizar(self, limite: int = 100) -> int:
         pendientes = self._outbox.pendientes(limite)
@@ -30,6 +34,13 @@ class ClienteSync:
         if self._replica is not None and self._local_id:
             snap = self._transporte.pull_catalogo(self._local_id)
             self._replica.aplicar_catalogo(snap)
+        if self._repo_movimientos is not None:
+            for ubicacion_id in self._ubicaciones:
+                desde = self._repo_movimientos.cursor(ubicacion_id)
+                resp = self._transporte.pull_inventario(ubicacion_id, desde)
+                self._repo_movimientos.aplicar_delta(resp["movimientos"])
+                if resp.get("cursor"):
+                    self._repo_movimientos.guardar_cursor(ubicacion_id, resp["cursor"])
         return len(aceptados)
 
 
@@ -55,6 +66,19 @@ class TransporteHTTP:
         import json
         peticion = urllib.request.Request(
             self._base + f"/sync/catalogo?local_id={local_id}",
+            headers={"Authorization": self._auth})
+        with urllib.request.urlopen(peticion, timeout=10.0) as r:
+            return json.loads(r.read())
+
+    def pull_inventario(self, ubicacion_id: int, desde: str | None) -> dict:
+        import urllib.request
+        import urllib.parse
+        import json
+        params = {"ubicacion_id": ubicacion_id}
+        if desde:
+            params["desde"] = desde
+        peticion = urllib.request.Request(
+            self._base + "/sync/inventario?" + urllib.parse.urlencode(params),
             headers={"Authorization": self._auth})
         with urllib.request.urlopen(peticion, timeout=10.0) as r:
             return json.loads(r.read())
