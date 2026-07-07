@@ -69,6 +69,9 @@ class RepositorioProductosConReplica:
     def por_id(self, id: int):
         return self._con_precio(self._interno.por_id(id))
 
+    def listar(self):
+        return [self._con_precio(p) for p in self._interno.listar()]
+
     def _con_precio(self, producto):
         if producto is None or producto.id is None:
             return producto

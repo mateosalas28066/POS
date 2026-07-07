@@ -91,4 +91,17 @@ def test_fallback_al_precio_local_si_replica_no_tiene_el_producto():
 def test_delega_metodos_no_sobreescritos():
     productos, replica = _productos_y_replica()
     repo = RepositorioProductosConReplica(productos, replica)
-    assert len(repo.listar()) == 2               # listar() se delega al repo interno
+    assert len(repo.listar()) == 2               # listar() devuelve todos los productos
+
+
+def test_listar_usa_precio_de_replica():
+    productos, replica = _productos_y_replica()
+    replica.aplicar_catalogo({"productos": [{
+        "producto_id": 1, "codigo_barras": "0001", "nombre": "Lomo", "unidad": "kg",
+        "vendido_por_peso": True, "categoria_id": None, "categoria_nombre": None,
+        "impuesto_id": None, "tarifa_impuesto": None, "precio": "20000", "costo": "12000",
+        "actualizado_en": "2026-07-07T10:00:00"}], "promociones": []})
+    repo = RepositorioProductosConReplica(productos, replica)
+    por_id = {p.id: p.precio for p in repo.listar()}
+    assert por_id[1] == Decimal("20000")         # el de la réplica (grilla de venta)
+    assert por_id[2] == Decimal("3000")          # sin overlay -> precio local

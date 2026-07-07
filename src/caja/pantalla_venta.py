@@ -208,7 +208,9 @@ class PantallaVenta(QWidget):
             t.deleteLater()
         self._tarjetas = []
         nombres_cat = {c.id: c.nombre for c in self._ctx.repo_categorias.listar()}
-        for p in self._ctx.repo_productos.listar():
+        # Los precios de la grilla salen de la réplica (igual que la línea al cobrar).
+        repo_venta = self._ctx.repo_productos_venta or self._ctx.repo_productos
+        for p in repo_venta.listar():
             agotado = self._ctx.repo_inventario.stock_de(p.id) <= CERO
             en_promo = self._ctx.repo_promociones.activa_por_producto(p.id) is not None
             tarjeta = TarjetaProducto(p, nombres_cat.get(p.categoria_id, ""),
