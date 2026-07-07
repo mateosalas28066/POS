@@ -32,6 +32,29 @@
 - **Rol admin en la web = allowlist por email (demo).** El spec §6 dice "falta un check de rol". Ponytail para demo: env `ADMIN_EMAILS` (coma-separado) + dependencia `admin_web` que exige que el email del JWT esté en la lista. Se cambia por una tabla de roles cuando se endurezca RLS (spec §11 riesgo 4) — fuera de NUBE2.
 - **`almacenes` → `ubicaciones` = rename + relax, sin vista de compat.** Se renombra la tabla, se agregan `tipo`/`activo` y se relaja `local_id NOT NULL`; las consultas de Fase 1 (`dashboard.py`) se migran a `FROM ubicaciones WHERE tipo='local'` (más limpio que una vista auto-actualizable, que rompe los INSERT de los fixtures). Las columnas `almacen_id` de Fase 1 se conservan (apuntan a `ubicaciones.id`).
 
+## Notas de ejecución en vivo — Ola A (2026-07-07)
+
+Aprendizajes reales al verificar la Ola A end-to-end (POS + backend + navegador). **Aplican a la Ola B.**
+
+1. **Desplegar migraciones a la BD real, no solo a `pos_test`.** Los tests corren contra `pos_test`;
+   la BD demo (`SUPABASE_DB_URL` → `/postgres`) NO se migra sola. La 005 faltaba en producción y
+   `/sync/catalogo` daba 500 (`relation "productos_local" does not exist`). Paso de deploy por fase:
+   `python -c "import psycopg,os; from app.migraciones_runner import aplicar_migraciones; aplicar_migraciones(psycopg.connect(os.environ['SUPABASE_DB_URL']))"`.
+   **La Ola B (migración 006) necesita el mismo paso.**
+2. **Alineación de ids POS↔nube = requisito.** La réplica busca precio por `producto_id` asumiendo
+   `nube.productos.id == POS.productos.id`. Si no coinciden, el precio degrada al local (no rompe).
+   Bootstrap hecho: sembrar el maestro nube + overlays `local-01` desde `w:\POS\pos.db`. Mantener
+   este invariante en inventario (Ola B): `ubicaciones`/movimientos deben referenciar ids consistentes.
+3. **`ADMIN_EMAILS` debe incluir el email real con que se entra a la web** (la cuenta demo era
+   `admin@test.com`, no el email del dueño). Va en `backend/.env` (no versionado).
+4. **Overlay = sync híbrido "aplica + avisa" (decisión del dueño, ya implementada en Ola A).** El precio
+   de la nube se aplica solo (venta **e** inventario, ambos leen la réplica vía decorator; el maestro
+   local no se toca desde el hilo). `RepositorioReplicaSQLite.aplicar_catalogo` detecta precios que
+   cambiaron y los registra en `novedades_catalogo` (migración POS 014); `VentanaPrincipal` los muestra
+   con un aviso no bloqueante en la barra de estado + diálogo "Entendido". Menor conocido: una edición
+   hecha en el POS vuelve por la nube y se auto-avisa. Para inventario multi-ubicación (Ola B), considerar
+   el mismo patrón de aviso si un movimiento/traslado llega desde la nube.
+
 ## File Structure
 
 **Repo `w:\pos-plataforma-web` (backend + frontend):**
