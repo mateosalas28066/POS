@@ -12,6 +12,7 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 from core.entidades import Categoria, Impuesto, Producto  # noqa: E402
 from caja.dialogos.dialogo_producto import DialogoProducto  # noqa: E402
 from caja.dialogos.dialogo_movimiento import DialogoMovimiento  # noqa: E402
+from caja.dialogos.dialogo_traslado import DialogoTraslado  # noqa: E402
 
 CATS = [Categoria(nombre="Carnes", id=1), Categoria(nombre="Frutas", id=2)]
 IMPS = [Impuesto(nombre="IVA 0%", tarifa=Decimal("0"), id=1)]
@@ -50,3 +51,21 @@ def test_dialogo_movimiento_construye():
     assert m.producto_id == 3
     assert m.tipo == "entrada"
     assert m.cantidad == Decimal("10")
+
+
+def test_dialogo_traslado_construye():
+    _app = QApplication.instance() or QApplication([])
+    d = DialogoTraslado(producto_id=3)
+    d._cantidad.setValue(15)
+    d._destino_id.setText("8")
+    d._ref.setText("traslado demo")
+    assert d.producto_id == 3
+    assert d.cantidad() == Decimal("15")
+    assert d.destino_id() == 8
+    assert d.ref() == "traslado demo"
+
+
+def test_dialogo_traslado_destino_vacio_es_none():
+    _app = QApplication.instance() or QApplication([])
+    d = DialogoTraslado(producto_id=3)
+    assert d.destino_id() is None

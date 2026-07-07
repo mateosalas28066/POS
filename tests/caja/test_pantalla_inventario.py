@@ -48,3 +48,53 @@ def test_aplicar_movimiento_cambia_stock():
         producto_id=prod.id, tipo="entrada", cantidad=Decimal("5"),
         fecha=__import__("datetime").datetime.now()))
     assert ctx.repo_inventario.stock_de(prod.id) == stock_antes + Decimal("5")
+
+
+def test_botones_multiubicacion_ocultos_sin_sync():
+    _app = QApplication.instance() or QApplication([])
+    ctx = ContextoApp.crear(":memory:")
+    win = PantallaInventario(ctx)
+    assert win._boton_traslado.isVisible() is False
+    assert win._boton_pendientes.isVisible() is False
+
+
+def test_aplicar_traslado_registra_salida_confirmada_y_entrada_pendiente(monkeypatch):
+    monkeypatch.setenv("LOCAL_ID", "local-01")
+    monkeypatch.setenv("ALMACEN_ID", "1")
+    monkeypatch.delenv("SYNC_URL", raising=False)
+    ctx = ContextoApp.crear(":memory:")
+    _app = QApplication.instance() or QApplication([])
+    win = PantallaInventario(ctx)
+    prod = ctx.repo_productos.listar()[0]
+
+    win._aplicar_traslado(prod.id, Decimal("10"), 8, "ref-demo")
+
+    assert ctx.repo_movimientos_ubicacion.stock(8, prod.id) == Decimal("0")   # pendiente
+    eventos = [e for e in ctx.repo_outbox.pendientes() if e.tipo == "movimiento_inventario"]
+    assert len(eventos) == 2
+    tipos = {e.payload["tipo"] for e in eventos}
+    assert tipos == {"salida", "entrada"}
+
+
+def test_confirmar_pendiente_desde_bandeja_flip_y_encola(monkeypatch):
+    monkeypatch.setenv("LOCAL_ID", "local-02")
+    monkeypatch.setenv("ALMACEN_ID", "8")
+    monkeypatch.delenv("SYNC_URL", raising=False)
+    ctx = ContextoApp.crear(":memory:")
+    _app = QApplication.instance() or QApplication([])
+    prod_id = ctx.repo_productos.listar()[0].id
+    ctx.repo_movimientos_ubicacion.registrar({
+        "uuid": "e-pend", "tipo": "entrada", "producto_id": prod_id, "cantidad": Decimal("10"),
+        "origen_id": 1, "destino_id": 8, "estado": "pendiente", "grupo_uuid": "g1",
+        "fecha": __import__("datetime").datetime.now()})
+
+    from caja.dialogos.dialogo_bandeja_pendientes import DialogoBandejaPendientes
+    dlg = DialogoBandejaPendientes(ctx)
+    assert dlg._tabla.rowCount() == 1
+    dlg._tabla.selectRow(0)
+    dlg._confirmar_seleccionado()
+
+    assert ctx.repo_movimientos_ubicacion.stock(8, prod_id) == Decimal("10")
+    assert dlg._tabla.rowCount() == 0   # ya no está pendiente
+    eventos = [e for e in ctx.repo_outbox.pendientes() if e.tipo == "movimiento_inventario"]
+    assert len(eventos) == 1 and eventos[0].payload["estado"] == "confirmado"

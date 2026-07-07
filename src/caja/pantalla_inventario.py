@@ -7,13 +7,21 @@ from PySide6.QtWidgets import (
     QHBoxLayout, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
+from datetime import datetime, timezone
+
 from caja.contexto import ContextoApp
+from caja.dialogos.dialogo_bandeja_pendientes import DialogoBandejaPendientes
 from caja.dialogos.dialogo_movimiento import DialogoMovimiento
 from caja.dialogos.dialogo_producto import DialogoProducto
 from caja.dialogos.dialogo_promociones import DialogoPromociones
+from caja.dialogos.dialogo_traslado import DialogoTraslado
 from caja.formato import formato_cantidad, formato_moneda
 from core.entidades import MovimientoInventario, Producto
-from core.permisos import ACCION_EDITAR_PRODUCTOS, ACCION_GESTIONAR_PROMOCIONES, puede
+from core.permisos import (
+    ACCION_CONFIRMAR_TRASLADO, ACCION_EDITAR_PRODUCTOS, ACCION_GESTIONAR_INVENTARIO,
+    ACCION_GESTIONAR_PROMOCIONES, puede,
+)
+from core.servicio_inventario_ubicaciones import plan_traslado
 
 _COLS = ["Código", "Nombre", "Categoría", "Precio", "Costo", "Stock", "Unidad"]
 _COLOR_ALERTA = QColor("#F59E0B")
@@ -37,12 +45,20 @@ class PantallaInventario(QWidget):
         self._boton_mov.clicked.connect(self._registrar_movimiento)
         self._boton_promos = QPushButton("Promociones")
         self._boton_promos.clicked.connect(self._abrir_promociones)
+        self._boton_traslado = QPushButton("Traslado")
+        self._boton_traslado.clicked.connect(self._registrar_traslado)
+        self._boton_pendientes = QPushButton("Pendientes")
+        self._boton_pendientes.clicked.connect(self._abrir_pendientes)
 
         rol = ctx.usuario_actual.rol if ctx.usuario_actual else "cajero"
         puede_editar = puede(rol, ACCION_EDITAR_PRODUCTOS)
         self._boton_nuevo.setVisible(puede_editar)
         self._boton_editar.setVisible(puede_editar)
         self._boton_promos.setVisible(puede(rol, ACCION_GESTIONAR_PROMOCIONES))
+        # Inventario multi-ubicación: solo si el POS está cableado a la nube (sync).
+        con_ubicaciones = ctx.repo_movimientos_ubicacion is not None
+        self._boton_traslado.setVisible(con_ubicaciones and puede(rol, ACCION_GESTIONAR_INVENTARIO))
+        self._boton_pendientes.setVisible(con_ubicaciones and puede(rol, ACCION_CONFIRMAR_TRASLADO))
 
         barra = QHBoxLayout()
         barra.addWidget(self._busqueda, 1)
@@ -50,6 +66,8 @@ class PantallaInventario(QWidget):
         barra.addWidget(self._boton_editar)
         barra.addWidget(self._boton_mov)
         barra.addWidget(self._boton_promos)
+        barra.addWidget(self._boton_traslado)
+        barra.addWidget(self._boton_pendientes)
 
         self._tabla = QTableWidget(0, len(_COLS))
         self._tabla.setHorizontalHeaderLabels(_COLS)
@@ -141,3 +159,25 @@ class PantallaInventario(QWidget):
         dlg = DialogoPromociones(self._ctx.repo_productos.listar(),
                                  self._ctx.svc_promociones, parent=self)
         dlg.exec()
+
+    @Slot()
+    def _registrar_traslado(self) -> None:
+        p = self._producto_seleccionado()
+        if p is None:
+            return
+        dlg = DialogoTraslado(p.id, parent=self)
+        if dlg.exec() == DialogoTraslado.Accepted and dlg.destino_id() is not None:
+            self._aplicar_traslado(p.id, dlg.cantidad(), dlg.destino_id(), dlg.ref())
+
+    def _aplicar_traslado(self, producto_id: int, cantidad, destino_id: int, ref) -> None:
+        origen_id = int(self._ctx.almacen_id)
+        movs = plan_traslado(producto_id, cantidad, origen_id=origen_id,
+                             destino_id=destino_id, fecha=datetime.now(timezone.utc))
+        for m in movs:
+            m["ref"] = ref
+            self._ctx.repo_movimientos_ubicacion.registrar(m)
+            self._ctx.encolar_movimiento(m)
+
+    @Slot()
+    def _abrir_pendientes(self) -> None:
+        DialogoBandejaPendientes(self._ctx, parent=self).exec()
