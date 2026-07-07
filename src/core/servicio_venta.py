@@ -19,7 +19,7 @@ from core.perifericos.gs1 import (
 from core.promociones import consumir_unidades, precio_con_promo, promo_vigente
 from core.puertos import (
     RepositorioDevoluciones, RepositorioImpuestos, RepositorioInventario,
-    RepositorioProductos, RepositorioPromociones, RepositorioVentas,
+    RepositorioOutbox, RepositorioProductos, RepositorioPromociones, RepositorioVentas,
 )
 
 CERO = Decimal("0")
@@ -222,6 +222,28 @@ class ServicioRegistroVenta:
             promo = self._promociones.por_id(promocion_id)
             if promo is not None and promo.tipo_duracion == "unidades":
                 self._promociones.actualizar(consumir_unidades(promo, cantidad))
+
+
+class ServicioRegistroVentaConOutbox:
+    """Decora ServicioRegistroVenta: registra y encola el evento para sync.
+
+    core no conoce sync_pdv ni el transporte: el serializador
+    (venta, pagos, almacen_id, local_id) -> evento se inyecta desde fuera.
+    """
+
+    def __init__(self, interno: ServicioRegistroVenta, outbox: RepositorioOutbox,
+                 almacen_id: int, local_id: str, serializar) -> None:
+        self._interno = interno
+        self._outbox = outbox
+        self._almacen_id = almacen_id
+        self._local_id = local_id
+        self._serializar = serializar
+
+    def registrar(self, venta: Venta, pagos: list[Pago]) -> Venta:
+        guardada = self._interno.registrar(venta, pagos)
+        self._outbox.encolar(
+            self._serializar(guardada, pagos, self._almacen_id, self._local_id))
+        return guardada
 
 
 class VentaNoEncontrada(ValueError):

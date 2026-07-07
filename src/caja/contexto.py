@@ -1,6 +1,7 @@
 """Composition root: construye repos y servicios sobre una conexión SQLite."""
 from __future__ import annotations
 
+import os
 import sqlite3
 from dataclasses import dataclass
 
@@ -100,12 +101,23 @@ class ContextoApp:
                                      movimientos=movimientos_caja)
         servicio_cxc = ServicioCuentasCobrar(cxc, ventas, servicio_caja)
         servicio_cxp = ServicioCuentasPagar(cxp, compras, servicio_caja)
+        svc_registro = ServicioRegistroVenta(ventas, inventario, promociones)
+        # Con LOCAL_ID + ALMACEN_ID en el entorno, cada venta registrada se encola
+        # en el outbox para sync con la nube; sin ellos el POS opera offline puro.
+        local_id = os.environ.get("LOCAL_ID")
+        almacen_id = os.environ.get("ALMACEN_ID")
+        if local_id and almacen_id:
+            from core.servicio_venta import ServicioRegistroVentaConOutbox
+            from sync_pdv.outbox import RepositorioOutboxSQLite, serializar_venta
+            svc_registro = ServicioRegistroVentaConOutbox(
+                svc_registro, RepositorioOutboxSQLite(conn),
+                int(almacen_id), local_id, serializar=serializar_venta)
         return cls(
             conn=conn,
             repo_productos=productos, repo_categorias=categorias, repo_impuestos=impuestos,
             repo_inventario=inventario, repo_clientes=clientes, repo_medios_pago=medios,
             repo_ventas=ventas, repo_sesiones=sesiones, repo_devoluciones=devoluciones,
-            svc_registro=ServicioRegistroVenta(ventas, inventario, promociones),
+            svc_registro=svc_registro,
             svc_anulacion=ServicioAnulacion(ventas, inventario),
             svc_clientes=ServicioClientes(clientes),
             svc_caja=servicio_caja,
