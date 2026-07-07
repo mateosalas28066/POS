@@ -123,7 +123,7 @@ class ContextoApp:
                 from inventario.db import conectar as conectar_sqlite
                 from sync_pdv.cliente import ClienteSync, TransporteHTTP
                 from sync_pdv.hilo_sincronizacion import HiloSincronizacion
-                conn_hilo = conectar_sqlite(ruta_db)
+                conn_hilo = conectar_sqlite(ruta_db, check_same_thread=False)
                 cliente_sync = ClienteSync(RepositorioOutboxSQLite(conn_hilo),
                                           TransporteHTTP(sync_url, local_id, local_token))
                 intervalo = float(os.environ.get("SYNC_INTERVALO_SEGUNDOS", "30"))

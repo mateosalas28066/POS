@@ -14,8 +14,9 @@ sqlite3.register_adapter(Decimal, str)
 sqlite3.register_converter("DECIMAL", lambda b: Decimal(b.decode()))
 
 
-def conectar(ruta: str = ":memory:") -> sqlite3.Connection:
-    conn = sqlite3.connect(ruta, detect_types=sqlite3.PARSE_DECLTYPES)
+def conectar(ruta: str = ":memory:", check_same_thread: bool = True) -> sqlite3.Connection:
+    conn = sqlite3.connect(ruta, detect_types=sqlite3.PARSE_DECLTYPES,
+                           check_same_thread=check_same_thread)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
