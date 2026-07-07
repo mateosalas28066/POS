@@ -115,11 +115,11 @@ class PantallaInventario(QWidget):
 
     def _guardar_producto(self, producto: Producto) -> None:
         if producto.id is None:
-            guardado = self._ctx.repo_productos.guardar(producto)
+            self._ctx.repo_productos.guardar(producto)   # alta local; el maestro se crea en la web
         else:
-            guardado = self._ctx.repo_productos.actualizar(producto)
-        # Si el POS está sincronizado, el precio local editado sube a la nube (overlay).
-        self._ctx.encolar_overlay(guardado)
+            actualizado = self._ctx.repo_productos.actualizar(producto)
+            # Editar el precio local de un producto existente sube el overlay a la nube.
+            self._ctx.encolar_overlay(actualizado)
 
     @Slot()
     def _registrar_movimiento(self) -> None:
