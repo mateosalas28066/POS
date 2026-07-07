@@ -8,6 +8,8 @@ __pycache__/
 .venv/
 venv/
 .env
+# config local de sync (LOCAL_TOKEN), no compartir
+iniciar_pos.ps1
 
 # SQLite local de la caja
 *.db
