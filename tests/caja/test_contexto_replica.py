@@ -39,3 +39,34 @@ def test_venta_cae_al_precio_local_si_replica_vacia(monkeypatch):
         assert linea.precio_unit == Decimal("30000")   # offline-first: precio local
     finally:
         ctx.conn.close()
+
+
+def test_encolar_overlay_pone_evento_cuando_hay_sync(monkeypatch):
+    monkeypatch.setenv("LOCAL_ID", "local-01")
+    monkeypatch.setenv("ALMACEN_ID", "1")
+    monkeypatch.delenv("SYNC_URL", raising=False)
+    from caja.contexto import ContextoApp
+
+    ctx = ContextoApp.crear(":memory:")
+    try:
+        prod = ctx.repo_productos.listar()[0]
+        ctx.encolar_overlay(prod)
+        overlays = [e for e in ctx.repo_outbox.pendientes() if e.tipo == "catalogo_overlay"]
+        assert len(overlays) == 1
+        assert overlays[0].payload["producto_id"] == prod.id
+        assert overlays[0].payload["precio"] == str(prod.precio)
+    finally:
+        ctx.conn.close()
+
+
+def test_encolar_overlay_es_noop_sin_sync(monkeypatch):
+    monkeypatch.delenv("LOCAL_ID", raising=False)
+    monkeypatch.delenv("ALMACEN_ID", raising=False)
+    from caja.contexto import ContextoApp
+
+    ctx = ContextoApp.crear(":memory:")
+    try:
+        assert ctx.repo_outbox is None
+        ctx.encolar_overlay(ctx.repo_productos.listar()[0])   # no debe romper
+    finally:
+        ctx.conn.close()

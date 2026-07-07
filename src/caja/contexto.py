@@ -77,6 +77,8 @@ class ContextoApp:
     formato_gs1: FormatoGS1 = FORMATO_PESO_DEFECTO
     hilo_sync: HiloSincronizacion | None = None  # type: ignore[assignment]
     repo_productos_venta: RepositorioProductosSQLite = None  # type: ignore[assignment]
+    repo_outbox: object | None = None            # outbox para eventos de catálogo (si hay sync)
+    local_id: str | None = None
 
     @classmethod
     def desde_conn(cls, conn: sqlite3.Connection, ruta_db: str | None = None) -> "ContextoApp":
@@ -110,14 +112,16 @@ class ContextoApp:
         almacen_id = os.environ.get("ALMACEN_ID")
         hilo_sync = None
         repo_productos_venta = productos
+        repo_outbox = None
         if local_id and almacen_id:
             from core.servicio_venta import ServicioRegistroVentaConOutbox
             from sync_pdv.outbox import RepositorioOutboxSQLite, serializar_venta
             from sync_pdv.replica import (
                 RepositorioProductosConReplica, RepositorioReplicaSQLite,
             )
+            repo_outbox = RepositorioOutboxSQLite(conn)
             svc_registro = ServicioRegistroVentaConOutbox(
-                svc_registro, RepositorioOutboxSQLite(conn),
+                svc_registro, repo_outbox,
                 int(almacen_id), local_id, serializar=serializar_venta)
             # La venta lee el precio de la réplica RO del catálogo (fallback al local).
             repo_productos_venta = RepositorioProductosConReplica(
@@ -174,6 +178,8 @@ class ContextoApp:
             svc_gastos=ServicioGastos(gastos, categorias_gasto, servicio_caja),
             hilo_sync=hilo_sync,
             repo_productos_venta=repo_productos_venta,
+            repo_outbox=repo_outbox,
+            local_id=local_id,
         )
 
     @classmethod
@@ -187,3 +193,15 @@ class ContextoApp:
     def nueva_venta(self) -> ServicioVenta:
         return ServicioVenta(self.repo_productos_venta or self.repo_productos,
                              self.repo_impuestos, self.repo_promociones)
+
+    def encolar_overlay(self, producto) -> None:
+        """El admin editó/importó el precio local de un producto: encola el evento
+        de overlay para que el push lo suba a la nube. No-op si el POS es offline puro."""
+        if self.repo_outbox is None or not self.local_id or producto.id is None:
+            return
+        from datetime import datetime, timezone
+
+        from sync_pdv.outbox import serializar_overlay
+        ahora = datetime.now(timezone.utc).isoformat()
+        self.repo_outbox.encolar(serializar_overlay(
+            self.local_id, producto.id, producto.precio, producto.costo, True, ahora))
