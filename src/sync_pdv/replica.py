@@ -1,6 +1,7 @@
 """Adaptador SQLite de la réplica RO del catálogo. Reemplaza el espejo con el snapshot."""
 from __future__ import annotations
 
+from dataclasses import replace
 from decimal import Decimal
 
 
@@ -51,3 +52,28 @@ class RepositorioReplicaSQLite:
     def listar(self) -> list[dict]:
         return [dict(f) for f in self._conn.execute(
             "SELECT * FROM catalogo_replica WHERE activo ORDER BY nombre").fetchall()]
+
+
+class RepositorioProductosConReplica:
+    """Envuelve un RepositorioProductos: el precio de venta sale de la réplica RO
+    cuando existe; si no (primer arranque sin sync, o id sin correspondencia), cae
+    al precio local (offline-first). El resto de métodos se delega al repo interno."""
+
+    def __init__(self, interno, replica: RepositorioReplicaSQLite) -> None:
+        self._interno = interno
+        self._replica = replica
+
+    def por_codigo(self, codigo_barras: str):
+        return self._con_precio(self._interno.por_codigo(codigo_barras))
+
+    def por_id(self, id: int):
+        return self._con_precio(self._interno.por_id(id))
+
+    def _con_precio(self, producto):
+        if producto is None or producto.id is None:
+            return producto
+        precio = self._replica.precio_de(producto.id)
+        return replace(producto, precio=precio) if precio is not None else producto
+
+    def __getattr__(self, nombre):
+        return getattr(self._interno, nombre)   # guardar/actualizar/listar delegados

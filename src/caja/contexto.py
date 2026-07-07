@@ -76,6 +76,7 @@ class ContextoApp:
     usuario_actual: Usuario | None = None
     formato_gs1: FormatoGS1 = FORMATO_PESO_DEFECTO
     hilo_sync: HiloSincronizacion | None = None  # type: ignore[assignment]
+    repo_productos_venta: RepositorioProductosSQLite = None  # type: ignore[assignment]
 
     @classmethod
     def desde_conn(cls, conn: sqlite3.Connection, ruta_db: str | None = None) -> "ContextoApp":
@@ -108,12 +109,19 @@ class ContextoApp:
         local_id = os.environ.get("LOCAL_ID")
         almacen_id = os.environ.get("ALMACEN_ID")
         hilo_sync = None
+        repo_productos_venta = productos
         if local_id and almacen_id:
             from core.servicio_venta import ServicioRegistroVentaConOutbox
             from sync_pdv.outbox import RepositorioOutboxSQLite, serializar_venta
+            from sync_pdv.replica import (
+                RepositorioProductosConReplica, RepositorioReplicaSQLite,
+            )
             svc_registro = ServicioRegistroVentaConOutbox(
                 svc_registro, RepositorioOutboxSQLite(conn),
                 int(almacen_id), local_id, serializar=serializar_venta)
+            # La venta lee el precio de la réplica RO del catálogo (fallback al local).
+            repo_productos_venta = RepositorioProductosConReplica(
+                productos, RepositorioReplicaSQLite(conn))
             # Con SYNC_URL + LOCAL_TOKEN además, arranca el push periódico en background.
             # Requiere ruta_db real (no ":memory:"): el hilo abre su propia conexión al
             # mismo archivo, ya que sqlite3.Connection no es segura entre hilos.
@@ -124,8 +132,10 @@ class ContextoApp:
                 from sync_pdv.cliente import ClienteSync, TransporteHTTP
                 from sync_pdv.hilo_sincronizacion import HiloSincronizacion
                 conn_hilo = conectar_sqlite(ruta_db, check_same_thread=False)
-                cliente_sync = ClienteSync(RepositorioOutboxSQLite(conn_hilo),
-                                          TransporteHTTP(sync_url, local_id, local_token))
+                cliente_sync = ClienteSync(
+                    RepositorioOutboxSQLite(conn_hilo),
+                    TransporteHTTP(sync_url, local_id, local_token),
+                    replica=RepositorioReplicaSQLite(conn_hilo), local_id=local_id)
                 intervalo = float(os.environ.get("SYNC_INTERVALO_SEGUNDOS", "30"))
                 hilo_sync = HiloSincronizacion(cliente_sync, intervalo)
                 hilo_sync.iniciar()
@@ -163,6 +173,7 @@ class ContextoApp:
             repo_gastos=gastos,
             svc_gastos=ServicioGastos(gastos, categorias_gasto, servicio_caja),
             hilo_sync=hilo_sync,
+            repo_productos_venta=repo_productos_venta,
         )
 
     @classmethod
@@ -174,4 +185,5 @@ class ContextoApp:
         return self.usuario_actual.id if self.usuario_actual else None
 
     def nueva_venta(self) -> ServicioVenta:
-        return ServicioVenta(self.repo_productos, self.repo_impuestos, self.repo_promociones)
+        return ServicioVenta(self.repo_productos_venta or self.repo_productos,
+                             self.repo_impuestos, self.repo_promociones)
