@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import datetime, timezone
 from decimal import Decimal
 
 
@@ -12,6 +13,9 @@ class RepositorioReplicaSQLite:
     def aplicar_catalogo(self, snapshot: dict) -> None:
         prods = snapshot.get("productos", [])
         promos = snapshot.get("promociones", [])
+        # Precios previos, para detectar los que cambiaron desde la nube (aviso no bloqueante).
+        anteriores = {r["producto_id"]: r["precio"] for r in self._conn.execute(
+            "SELECT producto_id, precio FROM catalogo_replica")}
         self._conn.execute("DELETE FROM catalogo_replica")
         self._conn.execute("DELETE FROM promo_replica")
         self._conn.executemany(
@@ -32,11 +36,30 @@ class RepositorioReplicaSQLite:
               None if pr["unidades_limite"] is None else Decimal(pr["unidades_limite"]),
               None if pr["unidades_restantes"] is None else Decimal(pr["unidades_restantes"]),
               pr["actualizado_en"]) for pr in promos])
+        ahora = datetime.now(timezone.utc).isoformat()
+        for p in prods:
+            previo = anteriores.get(p["producto_id"])
+            nuevo = Decimal(p["precio"])
+            if previo is not None and previo != nuevo:   # solo cambios, no la primera carga
+                self._conn.execute(
+                    "INSERT INTO novedades_catalogo "
+                    "(producto_id, nombre, precio_anterior, precio_nuevo, detectado_en) "
+                    "VALUES (?,?,?,?,?)",
+                    (p["producto_id"], p["nombre"], previo, nuevo, ahora))
         if prods:
             cursor = max(p["actualizado_en"] for p in prods)
             self._conn.execute(
                 "INSERT INTO sync_cursor (clave, valor) VALUES ('catalogo', ?) "
                 "ON CONFLICT (clave) DO UPDATE SET valor=excluded.valor", (cursor,))
+        self._conn.commit()
+
+    def novedades_pendientes(self) -> list[dict]:
+        return [dict(f) for f in self._conn.execute(
+            "SELECT id, producto_id, nombre, precio_anterior, precio_nuevo, detectado_en "
+            "FROM novedades_catalogo WHERE visto = 0 ORDER BY detectado_en, id")]
+
+    def marcar_novedades_vistas(self) -> None:
+        self._conn.execute("UPDATE novedades_catalogo SET visto = 1 WHERE visto = 0")
         self._conn.commit()
 
     def precio_de(self, producto_id: int) -> Decimal | None:

@@ -78,6 +78,7 @@ class ContextoApp:
     hilo_sync: HiloSincronizacion | None = None  # type: ignore[assignment]
     repo_productos_venta: RepositorioProductosSQLite = None  # type: ignore[assignment]
     repo_outbox: object | None = None            # outbox para eventos de catálogo (si hay sync)
+    repo_replica: object | None = None           # réplica RO (novedades de precio de la nube)
     local_id: str | None = None
 
     @classmethod
@@ -113,6 +114,7 @@ class ContextoApp:
         hilo_sync = None
         repo_productos_venta = productos
         repo_outbox = None
+        repo_replica = None
         if local_id and almacen_id:
             from core.servicio_venta import ServicioRegistroVentaConOutbox
             from sync_pdv.outbox import RepositorioOutboxSQLite, serializar_venta
@@ -124,8 +126,8 @@ class ContextoApp:
                 svc_registro, repo_outbox,
                 int(almacen_id), local_id, serializar=serializar_venta)
             # La venta lee el precio de la réplica RO del catálogo (fallback al local).
-            repo_productos_venta = RepositorioProductosConReplica(
-                productos, RepositorioReplicaSQLite(conn))
+            repo_replica = RepositorioReplicaSQLite(conn)
+            repo_productos_venta = RepositorioProductosConReplica(productos, repo_replica)
             # Con SYNC_URL + LOCAL_TOKEN además, arranca el push periódico en background.
             # Requiere ruta_db real (no ":memory:"): el hilo abre su propia conexión al
             # mismo archivo, ya que sqlite3.Connection no es segura entre hilos.
@@ -179,6 +181,7 @@ class ContextoApp:
             hilo_sync=hilo_sync,
             repo_productos_venta=repo_productos_venta,
             repo_outbox=repo_outbox,
+            repo_replica=repo_replica,
             local_id=local_id,
         )
 

@@ -7,4 +7,4 @@ def test_replica_tablas_existen():
     aplicar_migraciones(conn)
     tablas = {r[0] for r in conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table'")}
-    assert {"catalogo_replica", "promo_replica", "sync_cursor"} <= tablas
+    assert {"catalogo_replica", "promo_replica", "sync_cursor", "novedades_catalogo"} <= tablas

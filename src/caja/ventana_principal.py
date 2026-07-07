@@ -3,9 +3,10 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from PySide6.QtCore import Slot
+from PySide6.QtCore import QTimer, Slot
 from PySide6.QtWidgets import (
-    QButtonGroup, QDialog, QHBoxLayout, QMainWindow, QStackedWidget, QVBoxLayout, QWidget,
+    QButtonGroup, QDialog, QHBoxLayout, QLabel, QMainWindow, QPushButton,
+    QStackedWidget, QVBoxLayout, QWidget,
 )
 
 from caja.contexto import EFECTIVO_MEDIO_PAGO_ID, ContextoApp
@@ -86,6 +87,18 @@ class VentanaPrincipal(QMainWindow):
         layout.addWidget(self._stack, 1)
         self.setCentralWidget(central)
 
+        # Aviso no bloqueante de precios actualizados desde la nube (sync híbrido).
+        self._novedades: list[dict] = []
+        self._boton_novedades = QPushButton()
+        self._boton_novedades.setFlat(True)
+        self._boton_novedades.setVisible(False)
+        self._boton_novedades.clicked.connect(self._mostrar_novedades)
+        self.statusBar().addPermanentWidget(self._boton_novedades)
+        if self._ctx.repo_replica is not None:
+            self._timer_novedades = QTimer(self)
+            self._timer_novedades.timeout.connect(self._revisar_novedades)
+            self._timer_novedades.start(5000)
+
         self._botones[0].setChecked(True)
         self._ir_a(0)
 
@@ -126,3 +139,32 @@ class VentanaPrincipal(QMainWindow):
         monto = efectivo if efectivo is not None else Decimal("0")
         self.statusBar().showMessage(
             f"● Caja #{sesion.id} abierta  ·  Efectivo: {formato_moneda(monto)}")
+
+    @Slot()
+    def _revisar_novedades(self) -> None:
+        """Timer: consulta precios cambiados en la nube y actualiza el aviso de la barra."""
+        self._novedades = self._ctx.repo_replica.novedades_pendientes()
+        if self._novedades:
+            self._boton_novedades.setText(f"🔔 {len(self._novedades)} precio(s) actualizados")
+            self._boton_novedades.setVisible(True)
+        else:
+            self._boton_novedades.setVisible(False)
+
+    @Slot()
+    def _mostrar_novedades(self) -> None:
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Precios actualizados desde la nube")
+        lay = QVBoxLayout(dlg)
+        lay.addWidget(QLabel("Estos precios cambiaron en la nube y ya están aplicados:"))
+        for n in self._novedades:
+            antes = "—" if n["precio_anterior"] is None else formato_moneda(n["precio_anterior"])
+            lay.addWidget(QLabel(f"•  {n['nombre']}:  {antes}  →  {formato_moneda(n['precio_nuevo'])}"))
+        boton = QPushButton("Entendido")
+        boton.clicked.connect(dlg.accept)
+        lay.addWidget(boton)
+        dlg.exec()
+        self._ctx.repo_replica.marcar_novedades_vistas()
+        self._boton_novedades.setVisible(False)
+        actual = self._pantallas[self._stack.currentIndex()]
+        if hasattr(actual, "al_mostrar"):
+            actual.al_mostrar()             # refresca precios en la pantalla visible

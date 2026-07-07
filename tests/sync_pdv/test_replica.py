@@ -57,6 +57,49 @@ def test_aplica_promos():
     assert fila["tipo_valor"] == "porcentaje" and fila["valor"] == Decimal("0.10")
 
 
+# --- novedades: precios que cambiaron desde la nube (aviso no bloqueante) ----------
+
+def _snap(precio: str):
+    return {"productos": [{
+        "producto_id": 1, "codigo_barras": "0001", "nombre": "Lomo", "unidad": "kg",
+        "vendido_por_peso": True, "categoria_id": 10, "categoria_nombre": "Carnes",
+        "impuesto_id": 5, "tarifa_impuesto": "0.19", "precio": precio, "costo": "12000",
+        "actualizado_en": "2026-07-07T10:00:00"}], "promociones": []}
+
+
+def test_primera_carga_no_genera_novedades():
+    repo = _repo()
+    repo.aplicar_catalogo(_snap("20000"))
+    assert repo.novedades_pendientes() == []      # no había precio previo => no es novedad
+
+
+def test_precio_igual_no_genera_novedad():
+    repo = _repo()
+    repo.aplicar_catalogo(_snap("20000"))
+    repo.aplicar_catalogo(_snap("20000"))         # mismo precio otra vez
+    assert repo.novedades_pendientes() == []
+
+
+def test_precio_cambiado_genera_novedad():
+    repo = _repo()
+    repo.aplicar_catalogo(_snap("20000"))
+    repo.aplicar_catalogo(_snap("25000"))         # subió de 20000 a 25000
+    pend = repo.novedades_pendientes()
+    assert len(pend) == 1
+    n = pend[0]
+    assert n["producto_id"] == 1 and n["nombre"] == "Lomo"
+    assert n["precio_anterior"] == Decimal("20000") and n["precio_nuevo"] == Decimal("25000")
+
+
+def test_marcar_novedades_vistas():
+    repo = _repo()
+    repo.aplicar_catalogo(_snap("20000"))
+    repo.aplicar_catalogo(_snap("25000"))
+    assert len(repo.novedades_pendientes()) == 1
+    repo.marcar_novedades_vistas()
+    assert repo.novedades_pendientes() == []
+
+
 # --- RepositorioProductosConReplica: precio de venta réplica -> fallback local -----
 
 def _productos_y_replica():

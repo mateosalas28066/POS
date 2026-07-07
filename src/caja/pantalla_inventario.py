@@ -61,7 +61,9 @@ class PantallaInventario(QWidget):
         layout.addWidget(self._tabla)
 
     def al_mostrar(self) -> None:
-        self._productos = self._ctx.repo_productos.listar()
+        # Precio efectivo (réplica de la nube → fallback local), igual que en venta.
+        repo = self._ctx.repo_productos_venta or self._ctx.repo_productos
+        self._productos = repo.listar()
         nombres_cat = {c.id: c.nombre for c in self._ctx.repo_categorias.listar()}
         self._tabla.setRowCount(0)
         for p in self._productos:
