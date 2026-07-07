@@ -91,6 +91,22 @@ def serializar_producto_maestro(p: Producto, local_id: str, actualizado_en: str)
         "costo": str(p.costo), "actualizado_en": actualizado_en})
 
 
+def serializar_movimiento(mov: dict, almacen_id: int, local_id: str) -> EventoSync:
+    """Evento de movimiento de inventario multi-ubicación (append/flip) para materializar
+    en la nube. Sirve tanto para movimientos nuevos (plan_traslado/plan_conversion) como
+    para el flip de confirmación (mismo uuid, estado='confirmado')."""
+    fecha = mov["fecha"]
+    fecha_iso = fecha.isoformat() if hasattr(fecha, "isoformat") else fecha
+    return _evento(local_id, "movimiento_inventario", {
+        "uuid": mov["uuid"], "tipo": mov["tipo"], "producto_id": mov["producto_id"],
+        "cantidad": str(mov["cantidad"]), "origen_id": mov.get("origen_id"),
+        "destino_id": mov.get("destino_id"), "estado": mov.get("estado", "confirmado"),
+        "grupo_uuid": mov.get("grupo_uuid"), "lote_id": mov.get("lote_id"),
+        "ref": mov.get("ref"), "fecha": fecha_iso, "almacen_id": almacen_id,
+        "local_id": local_id,
+        "actualizado_en": mov.get("actualizado_en") or datetime.now(timezone.utc).isoformat()})
+
+
 def serializar_promo(promo: Promocion, local_id: str, actualizado_en: str) -> EventoSync:
     """Evento de promoción por (producto, local) = campos de core.Promocion + local/ts."""
     return _evento(local_id, "catalogo_promo", {
