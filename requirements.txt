@@ -3,6 +3,7 @@
 
 PySide6>=6.6        # interfaz de caja (Qt6)
 pyserial>=3.5       # balanza serial (fruver) — adaptador BalanzaSerial
+qt-material>=2.17   # tema Material de marca (Sistema de Diseño "Carnes y Fruver RL")
 
 # Desarrollo / pruebas
 pytest>=8.0
