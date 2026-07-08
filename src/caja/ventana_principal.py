@@ -14,13 +14,8 @@ from caja.contexto import EFECTIVO_MEDIO_PAGO_ID, ContextoApp
 from caja.dialogos.dialogo_cambio_password import DialogoCambioPassword
 from caja.formato import formato_moneda
 from caja.pantalla_cierre import PantallaCierre
-from caja.pantalla_clientes import PantallaClientes
-from caja.pantalla_compras import PantallaCompras
-from caja.pantalla_cuentas import PantallaCuentas
 from caja.pantalla_despiece import PantallaDespiece
-from caja.pantalla_gastos import PantallaGastos
 from caja.pantalla_inventario import PantallaInventario
-from caja.pantalla_proveedores import PantallaProveedores
 from caja.pantalla_reportes import PantallaReportes
 from caja.pantalla_usuarios import PantallaUsuarios
 from caja.pantalla_venta import PantallaVenta
@@ -120,11 +115,7 @@ class VentanaPrincipal(QMainWindow):
         self._ir_a(0)
 
     def _construir_pantalla(self, factory) -> QWidget:
-        if factory is PantallaClientes:
-            pantalla = factory(self._ctx.svc_clientes)
-        elif factory is PantallaProveedores:
-            pantalla = factory(self._ctx.svc_proveedores)
-        elif factory is PantallaUsuarios:
+        if factory is PantallaUsuarios:
             pantalla = factory(self._ctx.svc_usuarios)
         else:
             pantalla = factory(self._ctx)
