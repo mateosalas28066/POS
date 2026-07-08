@@ -21,6 +21,17 @@ def test_shell_registra_todas_las_pantallas():
     assert win._stack.count() == 11
 
 
+def test_tablas_configuradas_para_ajustar_texto():
+    from PySide6.QtWidgets import QHeaderView, QTableView
+    _app = QApplication.instance() or QApplication([])
+    win = VentanaPrincipal(ContextoApp.crear(":memory:"))
+    tablas = win.findChildren(QTableView)
+    assert tablas  # hay tablas en las pantallas
+    for t in tablas:
+        assert t.wordWrap()
+        assert t.horizontalHeader().sectionResizeMode(0) == QHeaderView.Stretch
+
+
 def test_navegar_cambia_pantalla_activa():
     _app = QApplication.instance() or QApplication([])
     win = VentanaPrincipal(ContextoApp.crear(":memory:"))

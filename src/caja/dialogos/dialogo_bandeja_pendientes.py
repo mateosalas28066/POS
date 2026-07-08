@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
 )
 
 from caja.formato import formato_cantidad
+from caja.widgets import configura_tabla
 
 _COLS = ["Producto", "Cantidad", "Desde (ubicación)", "Fecha"]
 
@@ -24,6 +25,7 @@ class DialogoBandejaPendientes(QDialog):
         self._tabla.setHorizontalHeaderLabels(_COLS)
         self._tabla.setEditTriggers(QTableWidget.NoEditTriggers)
         self._tabla.setSelectionBehavior(QTableWidget.SelectRows)
+        configura_tabla(self._tabla)
 
         self._boton_confirmar = QPushButton("Confirmar")
         self._boton_confirmar.clicked.connect(self._confirmar_seleccionado)

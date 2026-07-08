@@ -5,10 +5,28 @@ from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QIcon, QPixmap
-from PySide6.QtWidgets import QDoubleSpinBox, QFrame, QLabel, QSpinBox, QToolButton, QVBoxLayout
+from PySide6.QtWidgets import (
+    QDoubleSpinBox, QFrame, QHeaderView, QLabel, QSpinBox, QTableView,
+    QToolButton, QVBoxLayout,
+)
 
 from caja.formato import formato_moneda
 from core.entidades import Producto
+
+
+def configura_tabla(tabla: QTableView) -> None:
+    """Legibilidad uniforme de tablas: las columnas llenan el ancho disponible,
+    el texto largo se envuelve en varias líneas (en vez de cortarse con "…") y
+    las filas crecen para mostrarlo, respetando un alto mínimo táctil.
+    """
+    tabla.setWordWrap(True)
+    tabla.setTextElideMode(Qt.ElideNone)
+    cabecera = tabla.horizontalHeader()
+    cabecera.setSectionResizeMode(QHeaderView.Stretch)
+    cabecera.setMinimumSectionSize(80)
+    filas = tabla.verticalHeader()
+    filas.setSectionResizeMode(QHeaderView.ResizeToContents)
+    filas.setMinimumSectionSize(40)
 
 _DIR_PRODUCTOS = Path(__file__).resolve().parent / "recursos" / "productos"
 

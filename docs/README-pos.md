@@ -61,7 +61,7 @@ y facturación electrónica DIAN mañana.
 | E8 | Sync offline/outbox (push de ventas ✅ vía NUBE0/1; pull de catálogo y conflictos = Fase 2/NUBE2, 📋 specado) | 🟡 parcial |
 | DIAN | Facturación electrónica (stub → proveedor) | pendiente |
 
-Suite: **482 passed** (`python -m pytest -q`, 2026-07-08). Backend nube: **77 passed** con `TEST_DB_URL` (`w:\pos-plataforma-web\backend`).
+Suite: **483 passed** (`python -m pytest -q`, 2026-07-08). Backend nube: **77 passed** con `TEST_DB_URL` (`w:\pos-plataforma-web\backend`).
 
 **Despliegue de la nube (aprendizaje NUBE2, obligatorio para cada fase):** las migraciones de
 `w:\pos-plataforma-web\backend\migraciones` deben aplicarse **también a la BD real de Supabase**

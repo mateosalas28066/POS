@@ -6,7 +6,7 @@ from decimal import Decimal
 from PySide6.QtCore import QTimer, Slot
 from PySide6.QtWidgets import (
     QButtonGroup, QDialog, QHBoxLayout, QLabel, QMainWindow, QPushButton,
-    QStackedWidget, QVBoxLayout, QWidget,
+    QStackedWidget, QTableView, QVBoxLayout, QWidget,
 )
 
 from caja.contexto import EFECTIVO_MEDIO_PAGO_ID, ContextoApp
@@ -25,7 +25,7 @@ from caja.pantalla_reportes import PantallaReportes
 from caja.pantalla_usuarios import PantallaUsuarios
 from caja.pantalla_venta import PantallaVenta
 from caja.tema import icono
-from caja.widgets import BotonRail
+from caja.widgets import BotonRail, configura_tabla
 from core.permisos import ACCION_GESTIONAR_USUARIOS, puede
 
 # (icono, tooltip, factory, permiso)
@@ -86,6 +86,11 @@ class VentanaPrincipal(QMainWindow):
         layout.addWidget(rail)
         layout.addWidget(self._stack, 1)
         self.setCentralWidget(central)
+
+        # Legibilidad uniforme: todas las tablas de las pantallas ajustan columnas
+        # al ancho y envuelven texto largo (evita que las celdas corten palabras).
+        for tabla in self.findChildren(QTableView):
+            configura_tabla(tabla)
 
         # Aviso no bloqueante de precios actualizados desde la nube (sync híbrido).
         self._novedades: list[dict] = []

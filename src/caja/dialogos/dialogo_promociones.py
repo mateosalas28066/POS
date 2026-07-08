@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QLabel, QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
-from caja.widgets import DecimalSpinBoxPos
+from caja.widgets import DecimalSpinBoxPos, configura_tabla
 from core.entidades import Producto, Promocion
 from core.servicio_promociones import PromocionActivaExiste, ServicioPromociones
 
@@ -29,6 +29,7 @@ class DialogoPromociones(QDialog):
         self._tabla.setHorizontalHeaderLabels(_COLS)
         self._tabla.setEditTriggers(QTableWidget.NoEditTriggers)
         self._tabla.setSelectionBehavior(QTableWidget.SelectRows)
+        configura_tabla(self._tabla)
 
         boton_agregar = QPushButton("Agregar"); boton_agregar.setObjectName("primario")
         boton_agregar.clicked.connect(self._mostrar_formulario)
