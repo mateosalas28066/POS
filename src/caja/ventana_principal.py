@@ -92,6 +92,10 @@ class VentanaPrincipal(QMainWindow):
         for tabla in self.findChildren(QTableView):
             configura_tabla(tabla)
 
+        # El grip de redimensionar se pinta rojo (color primario de qt-material);
+        # lo ocultamos: la caja corre maximizada y no aporta nada.
+        self.statusBar().setSizeGripEnabled(False)
+
         # Aviso no bloqueante de precios actualizados desde la nube (sync híbrido).
         self._novedades: list[dict] = []
         self._boton_novedades = QPushButton()

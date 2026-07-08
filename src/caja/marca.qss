@@ -1,4 +1,17 @@
-QPushButton { min-height: 40px; }
+/* Botón secundario (default): neutro, no rojo. qt-material dibuja los botones
+   sin rol con borde y texto rojos (primario); racionamos el rojo dejándolo solo
+   para la acción primaria (#primario) y el estado activo de los chips (:checked). */
+QPushButton {
+    min-height: 40px;
+    background-color: #1E2330;
+    color: #F0F2F5;
+    border: 1px solid #2E3548;
+    border-radius: 6px;
+}
+QPushButton:hover { border-color: #8B95A8; }
+QPushButton:pressed { background-color: #151A25; }
+QPushButton:disabled { color: #5A6278; background-color: #151A25; border-color: #2E3548; }
+
 QPushButton#primario {
     background-color: #E01E26;
     border: none;
