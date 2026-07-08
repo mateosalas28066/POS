@@ -2,6 +2,14 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **ESTADO: COMPLETO (2026-07-07).** Las 24 tasks (A.1–A.13, B.1–B.11) están implementadas y
+> verificadas; ambas olas ✅ en `docs/README-pos.md` (filas NUBE2·OlaA / NUBE2·OlaB). Ejecutado en
+> **modo batched** (por lotes, sin subagente-por-task; decisión del usuario 2026-07-07). Detalle de
+> commits/suites por lote en el ledger `.superpowers/sdd/progress.md` (sección NUBE2). Revisión final
+> de rama hecha (2 reviewers) con Critical/Important corregidos. Verificación e2e en vivo (navegador +
+> dos POS) realizada por el usuario. Sin merge/push (pendiente decisión). Continúa en el spec de
+> aislamiento multi-tenant (NUBE3): `docs/superpowers/specs/2026-07-07-plataforma-web-aislamiento-multitenant-design.md`.
+
 **Goal:** Convertir la nube en la fuente de verdad del catálogo (maestro + precio/costo por local + promos) y montar el inventario multi-ubicación con movimientos entre cualquier par de ubicaciones, con sync bidireccional híbrido (catálogo por snapshot, inventario por delta), manteniendo el POS offline-first.
 
 **Architecture:** Dos repos hermanos con `core` compartido (`pos-core`). El backend nube (FastAPI + Supabase Postgres) gana el maestro de catálogo (`productos` + overlay `productos_local` + `promociones`) y la topología de inventario (`ubicaciones` + `movimientos_inventario` append-only). El POS baja una réplica RO del catálogo por snapshot y aplica el delta de inventario por cursor por ubicación; el admin edita catálogo/inventario desde la web **y** desde el POS, empujando por el outbox existente (`/sync/push`). Conflictos de catálogo = last-write-wins por fila vía `actualizado_en`; inventario = append-only sin conflicto (única excepción: el flip `pendiente→confirmado` de un traslado).
@@ -98,7 +106,7 @@ Aprendizajes reales al verificar la Ola A end-to-end (POS + backend + navegador)
 **Interfaces:**
 - Produces: tablas `impuestos(id,nombre,tarifa,codigo_dian)`; `productos` extendida con `codigo_barras,unidad,vendido_por_peso,impuesto_id,costo,actualizado_en`; `productos_local(local_id,producto_id,precio,costo,activo,actualizado_en)` PK `(local_id,producto_id)`; `promociones(id,producto_id,local_id,tipo_valor,valor,tipo_duracion,activa,desde,hasta,unidades_limite,unidades_restantes,actualizado_en)`; `categorias.actualizado_en`.
 
-- [ ] **Step 1: Escribir la migración**
+- [x] **Step 1: Escribir la migración**
 
 ```sql
 -- 005_catalogo_maestro.sql
@@ -159,7 +167,7 @@ ALTER TABLE productos_local ENABLE ROW LEVEL SECURITY;
 ALTER TABLE promociones ENABLE ROW LEVEL SECURITY;
 ```
 
-- [ ] **Step 2: Escribir el test de que la migración aplica y crea las tablas**
+- [x] **Step 2: Escribir el test de que la migración aplica y crea las tablas**
 
 En `test_migraciones.py`, extiende el test gated por `TEST_DB_URL` (mismo patrón que el archivo ya tiene). Añade:
 
@@ -176,12 +184,12 @@ def test_migracion_005_catalogo(conn_migrada):   # conn_migrada = fixture que co
 
 Si `test_migraciones.py` aún no tiene una fixture `conn_migrada`, créala con el patrón de `sembrada` (drop schema + `aplicar_migraciones`), gated por `TEST_DB_URL`.
 
-- [ ] **Step 3: Ejecutar el test — debe pasar contra una BD de prueba**
+- [x] **Step 3: Ejecutar el test — debe pasar contra una BD de prueba**
 
 Run: `cd w:\pos-plataforma-web\backend && $env:TEST_DB_URL="<branch-de-prueba>"; .venv\Scripts\python -m pytest tests/test_migraciones.py -q`
 Expected: PASS (sin `TEST_DB_URL`, SKIP). Verifica también con MCP Supabase `list_tables` en el branch de prueba.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 cd w:/pos-plataforma-web && git add backend/migraciones/005_catalogo_maestro.sql backend/tests/test_migraciones.py && git commit -F- <<'MSG'
@@ -201,7 +209,7 @@ MSG
 **Interfaces:**
 - Produces: `gana_escritura(entrante: datetime, existente: datetime | None) -> bool` — True si la escritura entrante debe sobrescribir. Se usa como guardia del upsert en el backend (`WHERE ... < entrante`) y en la réplica del POS.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 ```python
 from datetime import datetime, timedelta
@@ -222,12 +230,12 @@ def test_sin_existente_gana():
     assert gana_escritura(T0, None) is True
 ```
 
-- [ ] **Step 2: Ejecutar el test — debe fallar**
+- [x] **Step 2: Ejecutar el test — debe fallar**
 
 Run: `cd w:\POS && python -m pytest tests/core/test_sync_lww.py -q`
 Expected: FAIL con `ModuleNotFoundError: core.sync_lww`.
 
-- [ ] **Step 3: Implementación mínima**
+- [x] **Step 3: Implementación mínima**
 
 ```python
 """Regla pura de last-write-wins por fila (base del sync bidireccional de catálogo)."""
@@ -242,12 +250,12 @@ def gana_escritura(entrante: datetime, existente: datetime | None) -> bool:
     return existente is None or entrante > existente
 ```
 
-- [ ] **Step 4: Ejecutar el test — debe pasar**
+- [x] **Step 4: Ejecutar el test — debe pasar**
 
 Run: `cd w:\POS && python -m pytest tests/core/test_sync_lww.py -q`
 Expected: PASS (4 passed).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd w:/POS && git add src/core/sync_lww.py tests/core/test_sync_lww.py && git commit -F mensaje.txt
@@ -267,7 +275,7 @@ cd w:/POS && git add src/core/sync_lww.py tests/core/test_sync_lww.py && git com
 - Consumes: `local_autenticado` (auth por token de local, de `app.auth`), `conectar` (de `app.db`).
 - Produces: `GET /sync/catalogo` → `{"productos":[...], "promociones":[...]}` donde cada producto es el maestro **resuelto con su overlay activo** para ese local: `{producto_id, codigo_barras, nombre, unidad, vendido_por_peso, categoria_id, categoria_nombre, impuesto_id, tarifa_impuesto, precio, costo, actualizado_en}`; cada promo = campos de `core.Promocion` + `actualizado_en`. Solo productos con overlay `activo`.
 
-- [ ] **Step 1: Escribir los tests (unitario con conexión fake + integración gated)**
+- [x] **Step 1: Escribir los tests (unitario con conexión fake + integración gated)**
 
 ```python
 # test_catalogo.py — mismo andamiaje que test_dashboard.py (JWKS fake no hace falta: auth por token de local)
@@ -333,12 +341,12 @@ def test_snapshot_sin_token_rechaza(conn_fake):
     assert TestClient(app).get("/sync/catalogo?local_id=local-01").status_code == 401
 ```
 
-- [ ] **Step 2: Ejecutar los tests — deben fallar**
+- [x] **Step 2: Ejecutar los tests — deben fallar**
 
 Run: `cd w:\pos-plataforma-web\backend && .venv\Scripts\python -m pytest tests/test_catalogo.py -q`
 Expected: FAIL (`ModuleNotFoundError: app.catalogo` / 404).
 
-- [ ] **Step 3: Implementar el endpoint**
+- [x] **Step 3: Implementar el endpoint**
 
 ```python
 # backend/app/catalogo.py
@@ -403,12 +411,12 @@ from app.catalogo import router as catalogo_router
 app.include_router(catalogo_router)
 ```
 
-- [ ] **Step 4: Ejecutar los tests — deben pasar**
+- [x] **Step 4: Ejecutar los tests — deben pasar**
 
 Run: `cd w:\pos-plataforma-web\backend && .venv\Scripts\python -m pytest tests/test_catalogo.py -q`
 Expected: PASS (2 passed).
 
-- [ ] **Step 5: Test de integración (opcional pero recomendado) + Commit**
+- [x] **Step 5: Test de integración (opcional pero recomendado) + Commit**
 
 Añade a `test_catalogo.py` una fixture `sembrada` gated por `TEST_DB_URL` (patrón de `test_dashboard.py`): inserta `locales`, `impuestos`, `categorias`, `productos` (maestro), `productos_local` (overlay activo), `promociones`, y verifica el snapshot real. Luego:
 
@@ -430,7 +438,7 @@ cd w:/pos-plataforma-web && git add backend/app/catalogo.py backend/app/main.py 
 - Consumes: `usuario_web` (JWT Supabase), `settings.admin_emails`.
 - Produces: `admin_web(...) -> dict` — igual que `usuario_web` pero 403 si el email no está en `ADMIN_EMAILS`. Se usará como `dependencies=[Depends(admin_web)]` en los routers de gestión.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 En `test_auth.py` (reusa el JWKS fake / `CLAVE` de `test_dashboard.py` — o replica ese andamiaje):
 
@@ -446,9 +454,9 @@ def test_admin_web_acepta_admin(monkeypatch):
 
 *(El plan de detalle del test usa un endpoint de prueba montado sobre `admin_web`; alternativamente, verifícalo indirectamente en NUBE2A.5 sobre un endpoint real de gestión. Si prefieres, pospón este test a NUBE2A.5 y aquí solo implementa.)*
 
-- [ ] **Step 2: Ejecutar — falla** (`AttributeError: settings.admin_emails` / `admin_web` no existe).
+- [x] **Step 2: Ejecutar — falla** (`AttributeError: settings.admin_emails` / `admin_web` no existe).
 
-- [ ] **Step 3: Implementar**
+- [x] **Step 3: Implementar**
 
 En `config.py`, añade el campo y su carga:
 
@@ -472,9 +480,9 @@ def admin_web(usuario: dict = Depends(usuario_web)) -> dict:
 
 (Import `Depends` en `auth.py` si no está.)
 
-- [ ] **Step 4: Ejecutar — pasa.** Run: `.venv\Scripts\python -m pytest tests/test_auth.py -q` → PASS.
+- [x] **Step 4: Ejecutar — pasa.** Run: `.venv\Scripts\python -m pytest tests/test_auth.py -q` → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```
 feat(backend): dependencia admin_web (allowlist ADMIN_EMAILS) para gestion
@@ -497,7 +505,7 @@ feat(backend): dependencia admin_web (allowlist ADMIN_EMAILS) para gestion
   - `POST /catalogo/overlay` (upsert masivo) body `{producto_id, precio?, costo?, activo?, locales: ["local-01",...] | "todos"}` → upsert por cada local (importar = crear fila; si falta `costo`, siembra del maestro), `actualizado_en=now()`. Devuelve nº de filas afectadas.
   - `POST /catalogo/promociones` (upsert promo) body = campos de `core.Promocion` + `local_id` → `actualizado_en=now()`; respeta el índice único de "una activa por (producto, local)".
 
-- [ ] **Step 1: Escribir los tests** (con conexión fake que registra las sentencias, patrón `test_sync_push.py::_ConnFake`; y un caso de integración gated que verifique el upsert masivo "aplicar a todos"). Ejemplos de aserción:
+- [x] **Step 1: Escribir los tests** (con conexión fake que registra las sentencias, patrón `test_sync_push.py::_ConnFake`; y un caso de integración gated que verifique el upsert masivo "aplicar a todos"). Ejemplos de aserción:
 
 ```python
 def test_overlay_aplicar_a_todos_upserta_por_local(conn_fake_reg):
@@ -508,9 +516,9 @@ def test_upsert_maestro_setea_actualizado_en(conn_fake_reg):
     ...
 ```
 
-- [ ] **Step 2: Ejecutar — fallan.**
+- [x] **Step 2: Ejecutar — fallan.**
 
-- [ ] **Step 3: Implementar** (añadir a `catalogo.py`; router de gestión con `admin_web`):
+- [x] **Step 3: Implementar** (añadir a `catalogo.py`; router de gestión con `admin_web`):
 
 ```python
 from decimal import Decimal
@@ -592,9 +600,9 @@ def upsert_promocion(p: dict) -> dict:
 
 Añade `GET /catalogo/productos` y `GET /catalogo/overlay` (SELECT simples). Registra el router en `main.py`: `app.include_router(catalogo_gestion_router)` (importa `gestion as catalogo_gestion_router`). Añade `POST` a `allow_methods` de CORS si aún no incluye lo necesario (ya están `GET`/`POST`).
 
-- [ ] **Step 4: Ejecutar — pasan.** Run: `.venv\Scripts\python -m pytest tests/test_catalogo.py -q` → PASS.
+- [x] **Step 4: Ejecutar — pasan.** Run: `.venv\Scripts\python -m pytest tests/test_catalogo.py -q` → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```
 feat(backend): gestion web de catalogo (upsert maestro/overlay masivo/promos, admin)
@@ -615,7 +623,7 @@ feat(backend): gestion web de catalogo (upsert maestro/overlay masivo/promos, ad
   - `catalogo_overlay`: `{local_id, producto_id, precio, costo, activo, actualizado_en}`.
   - `catalogo_promo`: campos de `core.Promocion` + `{local_id, actualizado_en}`.
 
-- [ ] **Step 1: Test que falla** — un evento `catalogo_overlay` con `actualizado_en` mayor sobrescribe; uno con `actualizado_en` menor NO (LWW). Unitario con `_ConnFake` extendido + integración gated:
+- [x] **Step 1: Test que falla** — un evento `catalogo_overlay` con `actualizado_en` mayor sobrescribe; uno con `actualizado_en` menor NO (LWW). Unitario con `_ConnFake` extendido + integración gated:
 
 ```python
 def test_overlay_entrante_mas_viejo_no_sobrescribe(conn):  # integración
@@ -623,9 +631,9 @@ def test_overlay_entrante_mas_viejo_no_sobrescribe(conn):  # integración
     ...
 ```
 
-- [ ] **Step 2: Ejecutar — falla.**
+- [x] **Step 2: Ejecutar — falla.**
 
-- [ ] **Step 3: Implementar** — en `sync.py::push`, tras el ledger idempotente, despachar por tipo:
+- [x] **Step 3: Implementar** — en `sync.py::push`, tras el ledger idempotente, despachar por tipo:
 
 ```python
             tipo = ev["tipo"]
@@ -656,9 +664,9 @@ def _upsert_overlay(conn, p: dict) -> None:
 
 `_upsert_producto_maestro` y `_upsert_promo` siguen el mismo molde (INSERT … ON CONFLICT DO UPDATE … WHERE existente.actualizado_en < EXCLUDED.actualizado_en). Para promos, la clave de conflicto es `id`; si el evento activa una nueva promo, primero desactiva la activa previa del par (como en NUBE2A.5).
 
-- [ ] **Step 4: Ejecutar — pasa.** Run: `.venv\Scripts\python -m pytest tests/test_sync_push.py -q` → PASS.
+- [x] **Step 4: Ejecutar — pasa.** Run: `.venv\Scripts\python -m pytest tests/test_sync_push.py -q` → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```
 feat(backend): /sync/push materializa eventos de catalogo del POS con LWW
@@ -675,7 +683,7 @@ feat(backend): /sync/push materializa eventos de catalogo del POS con LWW
 **Interfaces:**
 - Produces: tabla `catalogo_replica` (vista resuelta por producto que el POS vende) + `promo_replica` + `sync_cursor(clave TEXT PK, valor TEXT)` para guardar el cursor de catálogo/inventario.
 
-- [ ] **Step 1: Escribir la migración**
+- [x] **Step 1: Escribir la migración**
 
 ```sql
 -- 012_catalogo_replica.sql
@@ -717,7 +725,7 @@ CREATE TABLE IF NOT EXISTS sync_cursor (
 );
 ```
 
-- [ ] **Step 2: Test** — aplica migraciones a una BD en memoria y verifica que existen las tablas:
+- [x] **Step 2: Test** — aplica migraciones a una BD en memoria y verifica que existen las tablas:
 
 ```python
 from inventario.db import conectar, aplicar_migraciones
@@ -730,9 +738,9 @@ def test_replica_tablas_existen():
     assert {"catalogo_replica", "promo_replica", "sync_cursor"} <= tablas
 ```
 
-- [ ] **Step 3: Ejecutar — pasa.** Run: `cd w:\POS && python -m pytest tests/<ruta>/test_replica_schema.py -q` → PASS.
+- [x] **Step 3: Ejecutar — pasa.** Run: `cd w:\POS && python -m pytest tests/<ruta>/test_replica_schema.py -q` → PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```
 feat(pos): migracion 012 replica RO de catalogo + tabla sync_cursor
@@ -753,7 +761,7 @@ feat(pos): migracion 012 replica RO de catalogo + tabla sync_cursor
   - `precio_de(producto_id: int) -> Decimal | None` y `producto(producto_id) -> dict | None` — lectura para la venta.
   - `listar() -> list[dict]` — para la pantalla de venta.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 ```python
 from decimal import Decimal
@@ -783,9 +791,9 @@ def test_reemplaza_no_acumula():
     assert repo.listar() == []            # snapshot vacío => réplica vacía (RO reemplazable)
 ```
 
-- [ ] **Step 2: Ejecutar — falla** (`ModuleNotFoundError`).
+- [x] **Step 2: Ejecutar — falla** (`ModuleNotFoundError`).
 
-- [ ] **Step 3: Implementar** `replica.py`:
+- [x] **Step 3: Implementar** `replica.py`:
 
 ```python
 """Adaptador SQLite de la réplica RO del catálogo. Reemplaza el espejo con el snapshot."""
@@ -843,9 +851,9 @@ class RepositorioReplicaSQLite:
             "SELECT * FROM catalogo_replica WHERE activo ORDER BY nombre").fetchall()]
 ```
 
-- [ ] **Step 4: Ejecutar — pasa.** Run: `python -m pytest tests/sync_pdv/test_replica.py -q` → PASS.
+- [x] **Step 4: Ejecutar — pasa.** Run: `python -m pytest tests/sync_pdv/test_replica.py -q` → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```
 feat(pos): adaptador RepositorioReplicaSQLite (aplica snapshot, lee precio para venta)
@@ -863,7 +871,7 @@ feat(pos): adaptador RepositorioReplicaSQLite (aplica snapshot, lee precio para 
 - Consumes: `RepositorioReplicaSQLite.aplicar_catalogo`, `TransporteSync`.
 - Produces: `TransporteSync` gana `pull_catalogo(local_id) -> dict`; `ClienteSync.__init__` acepta `replica=None, local_id=None`; `ClienteSync.sincronizar()` primero hace push (como hoy) y luego, si hay `replica`, baja el snapshot y lo aplica. `TransporteHTTP.pull_catalogo` hace `GET {url}/sync/catalogo?local_id=...` con el mismo Bearer.
 
-- [ ] **Step 1: Test que falla** — con un transporte fake que devuelve un snapshot, `sincronizar()` llama `replica.aplicar_catalogo(snapshot)`:
+- [x] **Step 1: Test que falla** — con un transporte fake que devuelve un snapshot, `sincronizar()` llama `replica.aplicar_catalogo(snapshot)`:
 
 ```python
 class _TransFake:
@@ -875,9 +883,9 @@ def test_sincronizar_aplica_snapshot(...):
     ...
 ```
 
-- [ ] **Step 2: Ejecutar — falla.**
+- [x] **Step 2: Ejecutar — falla.**
 
-- [ ] **Step 3: Implementar** — extender `cliente.py`:
+- [x] **Step 3: Implementar** — extender `cliente.py`:
 
 ```python
 class TransporteSync(Protocol):
@@ -919,9 +927,9 @@ Y en `TransporteHTTP`:
 
 (Guarda `self._base = url.rstrip("/")` en `__init__` para reusar en push y pull.)
 
-- [ ] **Step 4: Ejecutar — pasa.** Run: `python -m pytest tests/sync_pdv/ -q` → PASS.
+- [x] **Step 4: Ejecutar — pasa.** Run: `python -m pytest tests/sync_pdv/ -q` → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```
 feat(pos): ClienteSync baja snapshot de catalogo a la replica ademas del push
@@ -939,17 +947,17 @@ feat(pos): ClienteSync baja snapshot de catalogo a la replica ademas del push
 - Consumes: `RepositorioReplicaSQLite`, `ClienteSync(replica=..., local_id=...)`.
 - Produces: cuando hay `LOCAL_ID`, `ContextoApp` instancia la réplica; el `HiloSincronizacion` baja el catálogo; la lista de productos y el precio de venta salen de `catalogo_replica` cuando existe (fallback a `productos` local si la réplica está vacía → offline-first en primer arranque). El adaptador de venta lee `replica.precio_de(producto_id)`.
 
-- [ ] **Step 1: Test** — con réplica sembrada, la pantalla/servicio de venta usa el precio de la réplica y no el de `productos`. (Test de integración a nivel de `ContextoApp` o del servicio que resuelve el precio de línea.)
+- [x] **Step 1: Test** — con réplica sembrada, la pantalla/servicio de venta usa el precio de la réplica y no el de `productos`. (Test de integración a nivel de `ContextoApp` o del servicio que resuelve el precio de línea.)
 
-- [ ] **Step 2: Ejecutar — falla.**
+- [x] **Step 2: Ejecutar — falla.**
 
-- [ ] **Step 3: Implementar** — en `contexto.py`, dentro del bloque `if local_id and almacen_id:` construir `replica = RepositorioReplicaSQLite(conn)` y pasarla a `ClienteSync(..., replica=replica, local_id=local_id)` (y al hilo, con su `conn_hilo`). Ajustar la resolución de precio de venta para consultar la réplica primero. Mantener el fallback al catálogo local cuando la réplica esté vacía (primer arranque sin sync).
+- [x] **Step 3: Implementar** — en `contexto.py`, dentro del bloque `if local_id and almacen_id:` construir `replica = RepositorioReplicaSQLite(conn)` y pasarla a `ClienteSync(..., replica=replica, local_id=local_id)` (y al hilo, con su `conn_hilo`). Ajustar la resolución de precio de venta para consultar la réplica primero. Mantener el fallback al catálogo local cuando la réplica esté vacía (primer arranque sin sync).
 
   > Nota de alcance: esta es la parte más invasiva del POS. Cíñete a leer el precio desde la réplica en el punto donde hoy se toma `producto.precio`; no reescribas toda la pantalla de venta. Si el punto de lectura está muy acoplado, introduce un pequeño resolutor `precio_venta(producto_id)` que consulte réplica→fallback.
 
-- [ ] **Step 4: Ejecutar — pasa** + suite POS verde (`python -m pytest -q`).
+- [x] **Step 4: Ejecutar — pasa** + suite POS verde (`python -m pytest -q`).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```
 feat(pos): venta lee precio de la replica RO; hilo de sync baja catalogo
@@ -967,7 +975,7 @@ feat(pos): venta lee precio de la replica RO; hilo de sync baja catalogo
 **Interfaces:**
 - Produces: `serializar_overlay(local_id, producto_id, precio, costo, activo, actualizado_en) -> EventoSync` (tipo `catalogo_overlay`), `serializar_producto_maestro(...) -> EventoSync` (tipo `catalogo_producto`), `serializar_promo(...) -> EventoSync` (tipo `catalogo_promo`). El admin, al importar/editar en el POS, llama al servicio de gestión que encola el evento; el push existente lo sube (materializado en NUBE2A.6).
 
-- [ ] **Step 1: Test que falla** — `serializar_overlay(...)` produce un `EventoSync` con `tipo=="catalogo_overlay"` y payload con `precio`/`costo` como str y `actualizado_en`:
+- [x] **Step 1: Test que falla** — `serializar_overlay(...)` produce un `EventoSync` con `tipo=="catalogo_overlay"` y payload con `precio`/`costo` como str y `actualizado_en`:
 
 ```python
 def test_serializar_overlay():
@@ -977,13 +985,13 @@ def test_serializar_overlay():
     assert ev.payload["precio"] == "21000" and ev.payload["actualizado_en"]
 ```
 
-- [ ] **Step 2: Ejecutar — falla.**
+- [x] **Step 2: Ejecutar — falla.**
 
-- [ ] **Step 3: Implementar** los serializadores en `outbox.py` (patrón de `serializar_venta`): construir el dict, `uuid=str(uuid4())`, `creado_en=now(UTC).isoformat()`, `actualizado_en` = el de la edición (mismo instante). Cablear en la UI del admin la llamada al encolar tras editar. La UI de gestión desde el POS puede reusar la pantalla de productos existente añadiendo el encolado; **si el alcance de la UI POS crece, córtalo a "editar precio local + importar (activar overlay)"** — que es lo que el e2e exige — y deja el CRUD completo del maestro para la web.
+- [x] **Step 3: Implementar** los serializadores en `outbox.py` (patrón de `serializar_venta`): construir el dict, `uuid=str(uuid4())`, `creado_en=now(UTC).isoformat()`, `actualizado_en` = el de la edición (mismo instante). Cablear en la UI del admin la llamada al encolar tras editar. La UI de gestión desde el POS puede reusar la pantalla de productos existente añadiendo el encolado; **si el alcance de la UI POS crece, córtalo a "editar precio local + importar (activar overlay)"** — que es lo que el e2e exige — y deja el CRUD completo del maestro para la web.
 
-- [ ] **Step 4: Ejecutar — pasa** + suite POS verde.
+- [x] **Step 4: Ejecutar — pasa** + suite POS verde.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```
 feat(pos): serializadores de eventos de catalogo (overlay/maestro/promo) al outbox
@@ -1002,7 +1010,7 @@ feat(pos): serializadores de eventos de catalogo (overlay/maestro/promo) al outb
 - Consumes: `apiGet`/`apiPost` (JWT Supabase), endpoints `/catalogo/*`.
 - Produces: pantalla admin: lista del maestro; alta/edición de producto; por producto, editor de overlay con selector **"aplicar a: todos / locales específicos"** que llama `POST /catalogo/overlay`; alta/edición de promo. **Sin test runner → verificación manual.**
 
-- [ ] **Step 1: Añadir `apiPost` a `api.ts`**
+- [x] **Step 1: Añadir `apiPost` a `api.ts`**
 
 ```ts
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
@@ -1018,16 +1026,16 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
 }
 ```
 
-- [ ] **Step 2: Escribir `Catalogo.tsx` y `EditorOverlay.tsx`** — lista de productos (`GET /catalogo/productos`), formulario de alta/edición (`POST /catalogo/productos`), y el editor de overlay con el selector "aplicar a". Sigue el estilo/tokens ya usados en `Dashboard.tsx` (mismos componentes/CSS). Carga la skill `frontend-design` solo si rediseñas la estética; para paridad con el dashboard actual, reusa sus patrones.
+- [x] **Step 2: Escribir `Catalogo.tsx` y `EditorOverlay.tsx`** — lista de productos (`GET /catalogo/productos`), formulario de alta/edición (`POST /catalogo/productos`), y el editor de overlay con el selector "aplicar a". Sigue el estilo/tokens ya usados en `Dashboard.tsx` (mismos componentes/CSS). Carga la skill `frontend-design` solo si rediseñas la estética; para paridad con el dashboard actual, reusa sus patrones.
 
-- [ ] **Step 3: Enlazar en `App.tsx`** — barra de pestañas simple (estado local `vista: "ventas"|"catalogo"|"inventario"`), render condicional. La pestaña Catálogo/Inventario solo aparece para emails admin (opcional en demo; el backend ya rechaza con 403).
+- [x] **Step 3: Enlazar en `App.tsx`** — barra de pestañas simple (estado local `vista: "ventas"|"catalogo"|"inventario"`), render condicional. La pestaña Catálogo/Inventario solo aparece para emails admin (opcional en demo; el backend ya rechaza con 403).
 
-- [ ] **Step 4: Build + verificación manual**
+- [x] **Step 4: Build + verificación manual**
 
 Run: `cd w:\pos-plataforma-web\frontend && npm run build && npx oxlint`
 Expected: build OK, lint limpio. Verificación manual en el navegador se hace en NUBE2A.13.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```
 feat(frontend): UI web de catalogo (maestro + overlay "aplicar a" + promos)
@@ -1039,11 +1047,11 @@ feat(frontend): UI web de catalogo (maestro + overlay "aplicar a" + promos)
 
 **Files:** ninguno (verificación); al final, nota en el propio plan / commit de cierre de ola si aplica.
 
-- [ ] **Step 1:** Levanta backend (con `SUPABASE_DB_URL` al Session Pooler, `ADMIN_EMAILS` con tu email) y frontend (`npm run dev`). Aplica migraciones (arranque del backend o script).
-- [ ] **Step 2:** En la web (logueado como admin): crea/edita un producto del maestro, impórtalo a `local-01` con un precio, guarda. Verifica `productos_local` en Supabase (MCP `execute_sql`).
-- [ ] **Step 3:** Arranca el POS real (`w:\POS\iniciar_pos.ps1`, con `LOCAL_ID`/`ALMACEN_ID`/`SYNC_URL`/`LOCAL_TOKEN`). Espera un ciclo de sync (`SYNC_INTERVALO_SEGUNDOS`). Confirma que el producto/precio aparece en la venta del POS (leído de la réplica).
-- [ ] **Step 4:** En el POS (admin), cambia el precio local o importa otro producto. Espera el push. Confirma en la web que el cambio se refleja (`GET /catalogo/overlay`).
-- [ ] **Step 5:** Caso LWW: edita el mismo overlay en web y POS con marcas de tiempo distintas; confirma que gana el `actualizado_en` mayor. Documenta el resultado (qué se probó y cómo) en el reporte final.
+- [x] **Step 1:** Levanta backend (con `SUPABASE_DB_URL` al Session Pooler, `ADMIN_EMAILS` con tu email) y frontend (`npm run dev`). Aplica migraciones (arranque del backend o script).
+- [x] **Step 2:** En la web (logueado como admin): crea/edita un producto del maestro, impórtalo a `local-01` con un precio, guarda. Verifica `productos_local` en Supabase (MCP `execute_sql`).
+- [x] **Step 3:** Arranca el POS real (`w:\POS\iniciar_pos.ps1`, con `LOCAL_ID`/`ALMACEN_ID`/`SYNC_URL`/`LOCAL_TOKEN`). Espera un ciclo de sync (`SYNC_INTERVALO_SEGUNDOS`). Confirma que el producto/precio aparece en la venta del POS (leído de la réplica).
+- [x] **Step 4:** En el POS (admin), cambia el precio local o importa otro producto. Espera el push. Confirma en la web que el cambio se refleja (`GET /catalogo/overlay`).
+- [x] **Step 5:** Caso LWW: edita el mismo overlay en web y POS con marcas de tiempo distintas; confirma que gana el `actualizado_en` mayor. Documenta el resultado (qué se probó y cómo) en el reporte final.
 
 > **Checkpoint de revisión (subagent-driven / executing-plans):** no arranques la Ola B hasta que el usuario confirme la Ola A verificada en navegador.
 
@@ -1062,7 +1070,7 @@ feat(frontend): UI web de catalogo (maestro + overlay "aplicar a" + promos)
 **Interfaces:**
 - Produces: `almacenes` renombrada a `ubicaciones` con `tipo ('bodega'|'local')`, `activo`, `local_id` NULLABLE; `movimientos_inventario` extendida con `tipo` (entrada/salida/ajuste/traslado/conversion), `origen_id`, `destino_id`, `estado ('confirmado'|'pendiente')`, `grupo_uuid`, `lote_id`, `ref`, `actualizado_en`.
 
-- [ ] **Step 1: Escribir la migración**
+- [x] **Step 1: Escribir la migración**
 
 ```sql
 -- 006_ubicaciones_movimientos.sql
@@ -1091,11 +1099,11 @@ CREATE INDEX ix_mov_ubic_origen ON inventario_movimientos (origen_id, actualizad
 
 > Nota: `movimientos_inventario` de Fase 1 tiene 0 filas (spec de contexto), así que no hay backfill de datos que hacer.
 
-- [ ] **Step 2: Test** — extiende `test_migraciones.py`: tras aplicar, `ubicaciones` existe, `almacenes` no, y las columnas nuevas de `inventario_movimientos` están. Gated por `TEST_DB_URL`.
+- [x] **Step 2: Test** — extiende `test_migraciones.py`: tras aplicar, `ubicaciones` existe, `almacenes` no, y las columnas nuevas de `inventario_movimientos` están. Gated por `TEST_DB_URL`.
 
-- [ ] **Step 3: Ejecutar — pasa** contra branch de prueba.
+- [x] **Step 3: Ejecutar — pasa** contra branch de prueba.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```
 feat(backend): migracion 006 ubicaciones + movimientos_inventario multi-ubicacion
@@ -1113,11 +1121,11 @@ feat(backend): migracion 006 ubicaciones + movimientos_inventario multi-ubicacio
 **Interfaces:**
 - Produces: `dashboard.resumen` consulta `FROM ubicaciones WHERE activo AND tipo='local'` (los reportes de venta son por punto de venta, no por bodega).
 
-- [ ] **Step 1: Actualizar el test primero** — en `test_dashboard.py::_ConnFake`, cambia `if "FROM almacenes"` por `if "FROM ubicaciones"`; en los fixtures de integración (`sembrada`, y `conn` de `test_sync_push.py`) cambia `INSERT INTO almacenes (...)` por `INSERT INTO ubicaciones (id,nombre,local_id,tipo) VALUES (...,'local')`.
+- [x] **Step 1: Actualizar el test primero** — en `test_dashboard.py::_ConnFake`, cambia `if "FROM almacenes"` por `if "FROM ubicaciones"`; en los fixtures de integración (`sembrada`, y `conn` de `test_sync_push.py`) cambia `INSERT INTO almacenes (...)` por `INSERT INTO ubicaciones (id,nombre,local_id,tipo) VALUES (...,'local')`.
 
-- [ ] **Step 2: Ejecutar — falla** (dashboard aún dice `FROM almacenes`).
+- [x] **Step 2: Ejecutar — falla** (dashboard aún dice `FROM almacenes`).
 
-- [ ] **Step 3: Implementar** — en `dashboard.py`:
+- [x] **Step 3: Implementar** — en `dashboard.py`:
 
 ```python
         ubicaciones = conn.execute(
@@ -1127,9 +1135,9 @@ feat(backend): migracion 006 ubicaciones + movimientos_inventario multi-ubicacio
 
 (y renombra la variable local `almacenes`→`ubicaciones`; el resto del código y el nombre de columna `almacen_id` en `ventas` no cambian).
 
-- [ ] **Step 4: Ejecutar — pasan** los 3 tests de dashboard unitarios + push. Run: `.venv\Scripts\python -m pytest tests/test_dashboard.py tests/test_sync_push.py -q` → PASS.
+- [x] **Step 4: Ejecutar — pasan** los 3 tests de dashboard unitarios + push. Run: `.venv\Scripts\python -m pytest tests/test_dashboard.py tests/test_sync_push.py -q` → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```
 refactor(backend): dashboard y fixtures usan ubicaciones (tipo='local')
@@ -1151,7 +1159,7 @@ refactor(backend): dashboard y fixtures usan ubicaciones (tipo='local')
   - `plan_traslado(producto_id, cantidad, origen_id, destino_id, fecha) -> list[dict]` — 1 salida confirmada en origen + 1 entrada **pendiente** en destino, mismo `grupo_uuid`.
   - `plan_conversion(origen_id, salidas, entradas, fecha) -> list[dict]` — 1 salida del origen + N entradas en la **misma** ubicación, solo cantidades (merma permitida), mismo `grupo_uuid`. Reusa los ratios de cantidad; **sin costeo**.
 
-- [ ] **Step 1: Escribir los tests que fallan** (pure, sin BD):
+- [x] **Step 1: Escribir los tests que fallan** (pure, sin BD):
 
 ```python
 from decimal import Decimal
@@ -1191,9 +1199,9 @@ def test_plan_conversion_solo_cantidades():
     assert all(m["origen_id"] == 5 or m["destino_id"] == 5 for m in movs)
 ```
 
-- [ ] **Step 2: Ejecutar — falla.**
+- [x] **Step 2: Ejecutar — falla.**
 
-- [ ] **Step 3: Implementar** `servicio_inventario_ubicaciones.py`:
+- [x] **Step 3: Implementar** `servicio_inventario_ubicaciones.py`:
 
 ```python
 """Reglas puras de inventario multi-ubicación: stock por suma de confirmados y
@@ -1249,9 +1257,9 @@ def plan_conversion(*, origen_id, salidas, entradas, fecha) -> list[dict]:
 
 En `puertos.py` añade el `Protocol` `RepositorioMovimientosUbicacion` (firmas de arriba).
 
-- [ ] **Step 4: Ejecutar — pasa.** Run: `python -m pytest tests/core/test_inventario_ubicaciones.py -q` → PASS.
+- [x] **Step 4: Ejecutar — pasa.** Run: `python -m pytest tests/core/test_inventario_ubicaciones.py -q` → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```
 feat(core): reglas puras de inventario multi-ubicacion (stock, traslado, conversion)
@@ -1277,7 +1285,7 @@ feat(core): reglas puras de inventario multi-ubicacion (stock, traslado, convers
   - `GET /inventario/stock?ubicacion_id=U` → stock por producto en U.
   - `GET /inventario/pendientes?ubicacion_id=U` → entradas pendientes cuyo `destino_id=U` (bandeja).
 
-- [ ] **Step 1: Escribir tests** (fake + integración gated). Casos mínimos: entrada suma stock; traslado deja entrada pendiente en destino; confirmar cambia estado y stock del destino; pendientes lista el traslado entrante.
+- [x] **Step 1: Escribir tests** (fake + integración gated). Casos mínimos: entrada suma stock; traslado deja entrada pendiente en destino; confirmar cambia estado y stock del destino; pendientes lista el traslado entrante.
 
 ```python
 def test_traslado_y_confirmacion(conn):   # integración gated
@@ -1285,9 +1293,9 @@ def test_traslado_y_confirmacion(conn):   # integración gated
     ...
 ```
 
-- [ ] **Step 2: Ejecutar — falla.**
+- [x] **Step 2: Ejecutar — falla.**
 
-- [ ] **Step 3: Implementar** `inventario.py`. Los movimientos se insertan en `inventario_movimientos` (con `almacen_id` = la ubicación dueña: destino en entrada, origen en salida; `origen_id`/`destino_id` según el plan de core; `local_id` = el del local de la ubicación, o el del origen en traslado). El stock se calcula con `stock_por_suma` sobre los movimientos de la ubicación, o con una consulta SQL agregada equivalente. Confirmar:
+- [x] **Step 3: Implementar** `inventario.py`. Los movimientos se insertan en `inventario_movimientos` (con `almacen_id` = la ubicación dueña: destino en entrada, origen en salida; `origen_id`/`destino_id` según el plan de core; `local_id` = el del local de la ubicación, o el del origen en traslado). El stock se calcula con `stock_por_suma` sobre los movimientos de la ubicación, o con una consulta SQL agregada equivalente. Confirmar:
 
 ```python
 @router.post("/inventario/confirmar")
@@ -1303,9 +1311,9 @@ def confirmar(body: dict) -> dict:
 
 Registra el router en `main.py`.
 
-- [ ] **Step 4: Ejecutar — pasan.**
+- [x] **Step 4: Ejecutar — pasan.**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```
 feat(backend): gestion web de inventario (entrada/salida/ajuste/traslado/confirmar/conversion/stock)
@@ -1323,11 +1331,11 @@ feat(backend): gestion web de inventario (entrada/salida/ajuste/traslado/confirm
 - Consumes: `local_autenticado`.
 - Produces: `GET /sync/inventario?ubicacion_id=U&desde=<cursor>` → movimientos nuevos que **tocan** U (origen o destino) con `actualizado_en > desde`, ordenados por `actualizado_en`; incluye los flips de confirmación (porque el flip actualiza `actualizado_en`). Respuesta `{"movimientos":[...], "cursor": <max actualizado_en>}`.
 
-- [ ] **Step 1: Test que falla** — sembrar movimientos con `actualizado_en` crecientes; pedir con `desde` intermedio → solo devuelve los posteriores; el flip de confirmación reaparece con su nuevo `actualizado_en`.
+- [x] **Step 1: Test que falla** — sembrar movimientos con `actualizado_en` crecientes; pedir con `desde` intermedio → solo devuelve los posteriores; el flip de confirmación reaparece con su nuevo `actualizado_en`.
 
-- [ ] **Step 2: Ejecutar — falla.**
+- [x] **Step 2: Ejecutar — falla.**
 
-- [ ] **Step 3: Implementar**:
+- [x] **Step 3: Implementar**:
 
 ```python
 @router.get("/sync/inventario")
@@ -1349,9 +1357,9 @@ def sync_inventario(ubicacion_id: int, desde: str | None = None,
     return {"movimientos": movs, "cursor": cursor}
 ```
 
-- [ ] **Step 4: Ejecutar — pasa.**
+- [x] **Step 4: Ejecutar — pasa.**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```
 feat(backend): endpoint pull /sync/inventario (delta por cursor por ubicacion)
@@ -1368,11 +1376,11 @@ feat(backend): endpoint pull /sync/inventario (delta por cursor por ubicacion)
 **Interfaces:**
 - Produces: `push` maneja `tipo == "movimiento_inventario"` con payload `{uuid, tipo, producto_id, cantidad, origen_id, destino_id, estado, grupo_uuid, lote_id, ref, fecha, almacen_id, local_id, actualizado_en}`. Upsert por `uuid`: crea la fila **o** aplica el flip `pendiente→confirmado`; nunca reescribe cantidad/origen/destino.
 
-- [ ] **Step 1: Test que falla** — empujar un movimiento nuevo lo inserta; re-empujar el mismo uuid con `estado='confirmado'` solo cambia el estado (no duplica, no toca cantidad).
+- [x] **Step 1: Test que falla** — empujar un movimiento nuevo lo inserta; re-empujar el mismo uuid con `estado='confirmado'` solo cambia el estado (no duplica, no toca cantidad).
 
-- [ ] **Step 2: Ejecutar — falla.**
+- [x] **Step 2: Ejecutar — falla.**
 
-- [ ] **Step 3: Implementar** — en `sync.py`, rama nueva:
+- [x] **Step 3: Implementar** — en `sync.py`, rama nueva:
 
 ```python
             elif tipo == "movimiento_inventario":
@@ -1393,9 +1401,9 @@ def _materializar_movimiento(conn, p: dict) -> None:
          p.get("ref"), p["fecha"], p["actualizado_en"]))
 ```
 
-- [ ] **Step 4: Ejecutar — pasa.**
+- [x] **Step 4: Ejecutar — pasa.**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```
 feat(backend): /sync/push materializa movimiento_inventario (append + flip confirmacion)
@@ -1413,7 +1421,7 @@ feat(backend): /sync/push materializa movimiento_inventario (append + flip confi
 **Interfaces:**
 - Produces: en el POS, `ubicaciones` (espejo mínimo: id, nombre, tipo, local_id) + `movimientos_ubicacion` (uuid, tipo, producto_id, cantidad, origen_id, destino_id, estado, grupo_uuid, lote_id, ref, fecha, actualizado_en) + cursor por ubicación en `sync_cursor` (clave `inventario:<ubicacion_id>`). `RepositorioMovimientosUbicacionSQLite(conn)` implementa el puerto `RepositorioMovimientosUbicacion` de NUBE2B.3 (stock por suma, registrar, confirmar, aplicar delta).
 
-- [ ] **Step 1: Escribir la migración** (tipos DECLARADOS para portabilidad; `movimientos_ubicacion` append-only salvo el flip):
+- [x] **Step 1: Escribir la migración** (tipos DECLARADOS para portabilidad; `movimientos_ubicacion` append-only salvo el flip):
 
 ```sql
 -- 013_inventario_ubicaciones.sql — NUBE2 Ola B (POS).
@@ -1442,13 +1450,13 @@ CREATE INDEX IF NOT EXISTS ix_mov_ubic_dest ON movimientos_ubicacion (destino_id
 CREATE INDEX IF NOT EXISTS ix_mov_ubic_orig ON movimientos_ubicacion (origen_id);
 ```
 
-- [ ] **Step 2: Escribir el test que falla** — registrar entrada/salida y comprobar `stock`; aplicar un delta con un flip de confirmación y comprobar que el stock del destino sube.
+- [x] **Step 2: Escribir el test que falla** — registrar entrada/salida y comprobar `stock`; aplicar un delta con un flip de confirmación y comprobar que el stock del destino sube.
 
-- [ ] **Step 3: Ejecutar — falla.**
+- [x] **Step 3: Ejecutar — falla.**
 
-- [ ] **Step 4: Implementar** `repositorio_ubicaciones_sqlite.py` — `registrar(mov)` inserta `INSERT OR IGNORE` por uuid; `confirmar(uuid)` hace el flip; `stock(ubic, prod)` = SQL agregado (Σ entradas confirmadas a destino − Σ salidas confirmadas desde origen); `aplicar_delta(movs)` upsert por uuid (insert nuevo o flip). Reusa `core.servicio_inventario_ubicaciones.stock_por_suma` en tests para cruzar.
+- [x] **Step 4: Implementar** `repositorio_ubicaciones_sqlite.py` — `registrar(mov)` inserta `INSERT OR IGNORE` por uuid; `confirmar(uuid)` hace el flip; `stock(ubic, prod)` = SQL agregado (Σ entradas confirmadas a destino − Σ salidas confirmadas desde origen); `aplicar_delta(movs)` upsert por uuid (insert nuevo o flip). Reusa `core.servicio_inventario_ubicaciones.stock_por_suma` en tests para cruzar.
 
-- [ ] **Step 5: Ejecutar — pasa** + suite POS verde. **Commit**
+- [x] **Step 5: Ejecutar — pasa** + suite POS verde. **Commit**
 
 ```
 feat(pos): migracion 013 + RepositorioMovimientosUbicacionSQLite (stock, registrar, confirmar, delta)
@@ -1466,15 +1474,15 @@ feat(pos): migracion 013 + RepositorioMovimientosUbicacionSQLite (stock, registr
 **Interfaces:**
 - Produces: `TransporteSync.pull_inventario(ubicacion_id, desde) -> dict`; `ClienteSync.sincronizar()` — tras el push y el pull de catálogo, por cada ubicación local conocida baja el delta desde su cursor (`sync_cursor['inventario:<id>']`), lo aplica (append + flip) y avanza el cursor con el `cursor` de la respuesta.
 
-- [ ] **Step 1: Test que falla** — transporte fake devuelve 2 movimientos; `sincronizar` los aplica y avanza el cursor; segunda llamada con `desde` = cursor no reaplica.
+- [x] **Step 1: Test que falla** — transporte fake devuelve 2 movimientos; `sincronizar` los aplica y avanza el cursor; segunda llamada con `desde` = cursor no reaplica.
 
-- [ ] **Step 2: Ejecutar — falla.**
+- [x] **Step 2: Ejecutar — falla.**
 
-- [ ] **Step 3: Implementar** — añade `pull_inventario` al `Protocol` y a `TransporteHTTP` (`GET /sync/inventario?ubicacion_id&desde`); en `ClienteSync` inyecta el repo de movimientos + la lista de ubicaciones locales; itera cursor→aplicar→guardar cursor.
+- [x] **Step 3: Implementar** — añade `pull_inventario` al `Protocol` y a `TransporteHTTP` (`GET /sync/inventario?ubicacion_id&desde`); en `ClienteSync` inyecta el repo de movimientos + la lista de ubicaciones locales; itera cursor→aplicar→guardar cursor.
 
-- [ ] **Step 4: Ejecutar — pasa.**
+- [x] **Step 4: Ejecutar — pasa.**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```
 feat(pos): ClienteSync baja delta de inventario por ubicacion y aplica append+flip
@@ -1492,15 +1500,15 @@ feat(pos): ClienteSync baja delta de inventario por ubicacion y aplica append+fl
 **Interfaces:**
 - Produces: `serializar_movimiento(mov: dict, almacen_id, local_id) -> EventoSync` (tipo `movimiento_inventario`); la UI del admin en el POS registra entrada/salida/ajuste/traslado/confirmación/conversión (usando `core.servicio_inventario_ubicaciones` para armar los movimientos) y encola cada uno. El push existente los sube (materializados en NUBE2B.6).
 
-- [ ] **Step 1: Test que falla** — `serializar_movimiento({...})` produce `tipo=="movimiento_inventario"`, cantidad como str, incluye `origen_id`/`destino_id`/`estado`/`grupo_uuid`/`actualizado_en`.
+- [x] **Step 1: Test que falla** — `serializar_movimiento({...})` produce `tipo=="movimiento_inventario"`, cantidad como str, incluye `origen_id`/`destino_id`/`estado`/`grupo_uuid`/`actualizado_en`.
 
-- [ ] **Step 2: Ejecutar — falla.**
+- [x] **Step 2: Ejecutar — falla.**
 
-- [ ] **Step 3: Implementar** el serializador (patrón `serializar_venta`) + cablear en `pantalla_inventario.py`: al confirmar una operación, arma los movimientos con core, los registra localmente (repo de ubicaciones) y los encola. Confirmación de traslado entrante desde la bandeja del POS = flip local + evento con `estado='confirmado'`. Nuevo permiso `ACCION_GESTIONAR_INVENTARIO`/`ACCION_CONFIRMAR_TRASLADO` en `core/permisos.py` (añádelos a `PERMISOS_ADMIN`).
+- [x] **Step 3: Implementar** el serializador (patrón `serializar_venta`) + cablear en `pantalla_inventario.py`: al confirmar una operación, arma los movimientos con core, los registra localmente (repo de ubicaciones) y los encola. Confirmación de traslado entrante desde la bandeja del POS = flip local + evento con `estado='confirmado'`. Nuevo permiso `ACCION_GESTIONAR_INVENTARIO`/`ACCION_CONFIRMAR_TRASLADO` en `core/permisos.py` (añádelos a `PERMISOS_ADMIN`).
 
-- [ ] **Step 4: Ejecutar — pasa** + suite POS verde.
+- [x] **Step 4: Ejecutar — pasa** + suite POS verde.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```
 feat(pos): admin registra movimientos de inventario (permiso admin) y los encola al outbox
@@ -1519,10 +1527,10 @@ feat(pos): admin registra movimientos de inventario (permiso admin) y los encola
 - Consumes: `apiGet`/`apiPost`, endpoints `/inventario/*`.
 - Produces: formularios de entrada/salida/ajuste; crear traslado (origen/destino, incl. cross-local); **bandeja de traslados pendientes** por ubicación con botón "Confirmar" (`POST /inventario/confirmar`); vista de **stock por ubicación** (`GET /inventario/stock`); conversión (1 origen → N destinos, solo cantidades).
 
-- [ ] **Step 1:** Escribir `Inventario.tsx` (selector de ubicación + operaciones) y `BandejaPendientes.tsx` (lista + confirmar). Reusa estilo del dashboard.
-- [ ] **Step 2:** Enlazar la pestaña Inventario en `App.tsx`.
-- [ ] **Step 3:** Build + lint: `npm run build && npx oxlint` → OK.
-- [ ] **Step 4: Commit**
+- [x] **Step 1:** Escribir `Inventario.tsx` (selector de ubicación + operaciones) y `BandejaPendientes.tsx` (lista + confirmar). Reusa estilo del dashboard.
+- [x] **Step 2:** Enlazar la pestaña Inventario en `App.tsx`.
+- [x] **Step 3:** Build + lint: `npm run build && npx oxlint` → OK.
+- [x] **Step 4: Commit**
 
 ```
 feat(frontend): UI web de inventario (operaciones, bandeja de pendientes, stock por ubicacion)
@@ -1535,12 +1543,12 @@ feat(frontend): UI web de inventario (operaciones, bandeja de pendientes, stock 
 **Files:**
 - Modify: `w:\POS\docs\README-pos.md` (fila NUBE2 → ✅ implementado).
 
-- [ ] **Step 1:** Backend + frontend + dos POS (o simular local A y local B con dos `LOCAL_ID`). Sembrar ubicaciones (local A, local B, una bodega compartida).
-- [ ] **Step 2:** Registrar una **entrada** en la bodega (web); confirmar stock por ubicación en la web y en Supabase (MCP).
-- [ ] **Step 3:** Crear un **traslado cross-local** (local A → local B). Verificar: sale de A (confirmado), entra a B **pendiente**. El POS de B baja el delta y muestra el traslado en su **bandeja de pendientes**.
-- [ ] **Step 4:** Confirmar el traslado (en la web o en el POS de B). Verificar el flip `pendiente→confirmado`, que se propaga por el cursor, y que el **stock por ubicación** de B sube en ambos lados.
-- [ ] **Step 5:** Probar una **conversión** (1 salida → N entradas, con merma) y un **ajuste**. Confirmar stock.
-- [ ] **Step 6:** Correr ambas suites: `cd w:\POS && python -m pytest -q` (≥420) y `cd w:\pos-plataforma-web\backend && .venv\Scripts\python -m pytest -q`. Actualizar la fila NUBE2 en `README-pos.md` a ✅. **Commit** `docs: cierra NUBE2 (catalogo + inventario multi-ubicacion) en README`.
+- [x] **Step 1:** Backend + frontend + dos POS (o simular local A y local B con dos `LOCAL_ID`). Sembrar ubicaciones (local A, local B, una bodega compartida).
+- [x] **Step 2:** Registrar una **entrada** en la bodega (web); confirmar stock por ubicación en la web y en Supabase (MCP).
+- [x] **Step 3:** Crear un **traslado cross-local** (local A → local B). Verificar: sale de A (confirmado), entra a B **pendiente**. El POS de B baja el delta y muestra el traslado en su **bandeja de pendientes**.
+- [x] **Step 4:** Confirmar el traslado (en la web o en el POS de B). Verificar el flip `pendiente→confirmado`, que se propaga por el cursor, y que el **stock por ubicación** de B sube en ambos lados.
+- [x] **Step 5:** Probar una **conversión** (1 salida → N entradas, con merma) y un **ajuste**. Confirmar stock.
+- [x] **Step 6:** Correr ambas suites: `cd w:\POS && python -m pytest -q` (≥420) y `cd w:\pos-plataforma-web\backend && .venv\Scripts\python -m pytest -q`. Actualizar la fila NUBE2 en `README-pos.md` a ✅. **Commit** `docs: cierra NUBE2 (catalogo + inventario multi-ubicacion) en README`.
 
 > **No** hagas merge ni push. Reporta al usuario qué se implementó y cómo se verificó cada ola.
 
