@@ -118,3 +118,23 @@ def test_bandeja_muestra_traslado_entrante_cuando_origen_none(monkeypatch):
     dlg = DialogoBandejaPendientes(ctx)
     assert dlg._tabla.rowCount() == 1
     assert dlg._tabla.item(0, 2).text() == "Traslado entrante"
+
+
+def test_bandeja_muestra_nombre_del_origen_enriquecido(monkeypatch):
+    # el delta de la nube trae origen_nombre (resuelto por el grupo); la bandeja lo muestra
+    monkeypatch.setenv("LOCAL_ID", "local-02")
+    monkeypatch.setenv("ALMACEN_ID", "8")
+    monkeypatch.delenv("SYNC_URL", raising=False)
+    ctx = ContextoApp.crear(":memory:")
+    _app = QApplication.instance() or QApplication([])
+    prod_id = ctx.repo_productos.listar()[0].id
+    ctx.repo_movimientos_ubicacion.aplicar_delta([{
+        "uuid": "e-y", "tipo": "entrada", "producto_id": prod_id, "cantidad": "10",
+        "origen_id": None, "destino_id": 8, "estado": "pendiente", "grupo_uuid": "g2",
+        "origen_nombre": "Bodega Central",
+        "fecha": "2026-07-07T10:00:00+00:00", "actualizado_en": "2026-07-07T10:00:00+00:00"}])
+
+    from caja.dialogos.dialogo_bandeja_pendientes import DialogoBandejaPendientes
+    dlg = DialogoBandejaPendientes(ctx)
+    assert dlg._tabla.rowCount() == 1
+    assert dlg._tabla.item(0, 2).text() == "Bodega Central"

@@ -54,9 +54,12 @@ class DialogoBandejaPendientes(QDialog):
                 self._tabla.setItem(fila, col, QTableWidgetItem(texto))
 
     def _origen(self, mov: dict) -> str:
-        """La entrada pendiente tiene origen_id=None (el origen vive en la salida del
-        grupo). Si esa salida está en la BD local, muestra su ubicación; si no (caso
-        cross-local: el destino no sincroniza la salida del origen), 'Traslado entrante'."""
+        """La entrada pendiente tiene origen_id=None (el origen vive en la salida del grupo).
+        Preferencia: el nombre del origen que baja enriquecido del pull (origen_nombre); si no,
+        la ubicación de la salida del grupo si está en la BD local; si nada (caso cross-local sin
+        enriquecer), 'Traslado entrante'."""
+        if mov.get("origen_nombre"):
+            return mov["origen_nombre"]
         origen = mov.get("origen_id")
         if origen is None and mov.get("grupo_uuid"):
             for m in self._ctx.repo_movimientos_ubicacion.movimientos_grupo(mov["grupo_uuid"]):

@@ -56,14 +56,16 @@ class RepositorioMovimientosUbicacionSQLite:
         for m in movimientos:
             self._conn.execute(
                 "INSERT INTO movimientos_ubicacion (uuid, tipo, producto_id, cantidad, "
-                "origen_id, destino_id, estado, grupo_uuid, lote_id, ref, fecha, actualizado_en) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?) "
+                "origen_id, destino_id, estado, grupo_uuid, lote_id, ref, origen_nombre, "
+                "fecha, actualizado_en) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) "
                 "ON CONFLICT(uuid) DO UPDATE SET estado=excluded.estado, "
                 "actualizado_en=excluded.actualizado_en "
                 "WHERE movimientos_ubicacion.estado='pendiente' AND excluded.estado='confirmado'",
                 (m["uuid"], m["tipo"], m["producto_id"], Decimal(str(m["cantidad"])),
                  m.get("origen_id"), m.get("destino_id"), m["estado"], m.get("grupo_uuid"),
-                 m.get("lote_id"), m.get("ref"), m["fecha"], m["actualizado_en"]))
+                 m.get("lote_id"), m.get("ref"), m.get("origen_nombre"),
+                 m["fecha"], m["actualizado_en"]))
         self._conn.commit()
 
     def pendientes(self, ubicacion_id: int) -> list[dict]:
