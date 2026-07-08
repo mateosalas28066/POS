@@ -61,9 +61,13 @@ El backend ya conoce `P = local_autenticado`. Para cada evento del lote:
   pertenece a P. Si no, rechazar.
 - **`catalogo_overlay`** / **`catalogo_promo`** → aceptar si `payload.local_id == P`. Si no, rechazar.
 - **`catalogo_producto`** (maestro global) → **aceptar** (el maestro es compartido; se conserva la
-  materialización LWW existente). *Decisión:* mantener el maestro compartido preserva la edición
-  bidireccional del catálogo ya entregada en NUBE2 Ola A (el admin del POS edita un producto →
-  outbox → materializa el maestro con LWW). Restringirlo a web-admin regresaría ese flujo.
+  materialización LWW existente). *Decisión (usuario):* mantener el maestro **compartido hoy**,
+  preservando la edición bidireccional del catálogo ya entregada en NUBE2 Ola A (el admin del POS
+  edita un producto → outbox → materializa el maestro con LWW). *Costura de futuro:* esta rama vive
+  como una **política aislada** dentro de `evento_permitido` (una sola decisión `catalogo_producto →
+  permitir`), de modo que restringirla a web-admin en una fase posterior sea un cambio de una línea
+  (cambiar el retorno de esa rama), no un rediseño. No se implementa la restricción ahora — solo se
+  deja el punto único de cambio documentado.
 - **`movimiento_inventario`** — un token de POS solo produce, por diseño (alcance acotado de
   NUBE2B.9), dos formas:
   - **Grupo de traslado** (salida `origen`=P confirmada + entrada `destino`=otra ubicación,
@@ -133,7 +137,8 @@ Postgres real (necesitan el lookup de `ubicaciones`), así que van en la secció
 ## 7. Riesgos y decisiones cerradas
 
 - **Web-admin conserva cross-local** (dueño del negocio) — no se restringe en esta fase.
-- **Maestro compartido** (§4) — decisión explícita para no regresar Ola A.
+- **Maestro compartido** (§4) — decisión explícita para no regresar Ola A; la rama queda como
+  costura única de cambio para una futura restricción por permiso (sin implementarla ahora).
 - **Enforcement por-evento** (§5) — evita poison-event; requiere la columna `rechazo_motivo`.
 - **Sin cambio de conexión** — RLS real queda para Fase 3; esta fase es defensa a nivel app, que es
   hoy la única capa de aislamiento efectiva (backend usa conexión de servicio).
