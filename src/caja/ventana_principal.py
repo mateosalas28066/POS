@@ -16,7 +16,6 @@ from caja.formato import formato_moneda
 from caja.pantalla_cierre import PantallaCierre
 from caja.pantalla_inventario import PantallaInventario
 from caja.pantalla_reportes import PantallaReportes
-from caja.pantalla_usuarios import PantallaUsuarios
 from caja.pantalla_venta import PantallaVenta
 from caja.tema import icono
 from caja.widgets import BotonRail, CabeceraVista, configura_tabla
@@ -114,10 +113,7 @@ class VentanaPrincipal(QMainWindow):
         self._ir_a(0)
 
     def _construir_pantalla(self, factory) -> QWidget:
-        if factory is PantallaUsuarios:
-            pantalla = factory(self._ctx.svc_usuarios)
-        else:
-            pantalla = factory(self._ctx)
+        pantalla = factory(self._ctx)
         if hasattr(pantalla, "caja_cambiada"):
             pantalla.caja_cambiada.connect(self._refrescar_estado)
         return pantalla
