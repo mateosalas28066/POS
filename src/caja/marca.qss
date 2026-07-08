@@ -1,0 +1,38 @@
+QPushButton { min-height: 40px; }
+QPushButton#primario {
+    background-color: #E01E26;
+    border: none;
+    color: #FFFFFF;
+    font-weight: bold;
+    min-height: 48px;
+}
+QPushButton#primario:hover { background-color: #C1161D; }
+QPushButton#primario:disabled { background-color: #5A6278; color: #1E2330; }
+
+QToolButton#rail {
+    background-color: #151A25;
+    border: none;
+    border-left: 3px solid transparent;
+    padding: 12px 0px;
+}
+QToolButton#rail:checked {
+    background-color: #1E2330;
+    border-left: 3px solid #E01E26;
+}
+
+QLabel#kpi-valor { font-family: "Geist Mono"; font-size: 22px; font-weight: bold; color: #F0F2F5; }
+QLabel#secundario { color: #8B95A8; }
+QLabel#positivo { color: #22C55E; font-weight: bold; }
+QLabel#alerta { color: #F59E0B; font-weight: bold; }
+QLabel#error { color: #EF4444; }
+QLabel#badge-promo { color: #F59E0B; font-weight: bold; }
+
+QFrame#card, QFrame.card {
+    background-color: #1E2330;
+    border: 1px solid #2E3548;
+    border-radius: 10px;
+}
+QFrame#card[promo="true"] { border: 1px solid #F59E0B; }
+
+QTableWidget, QTableView { selection-background-color: #E01E26; selection-color: #FFFFFF; }
+QTableView::item { min-height: 40px; }
