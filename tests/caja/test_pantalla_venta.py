@@ -26,6 +26,18 @@ def test_pantalla_construye_y_lista_productos():
     assert len(win._tarjetas) >= 4
 
 
+def test_venta_abre_dialogo_de_devolucion(monkeypatch):
+    _app = QApplication.instance() or QApplication([])
+    win = PantallaVenta(_ctx())
+    assert win._boton_devolucion.text() == "Devolución"
+    from caja.dialogos.dialogo_devolucion import DialogoDevolucion
+    abiertos = []
+    monkeypatch.setattr(DialogoDevolucion, "exec", lambda self: abiertos.append(self) or 0)
+    win._abrir_devolucion()
+    assert len(abiertos) == 1
+    assert isinstance(abiertos[0], DialogoDevolucion)
+
+
 def test_agregar_producto_actualiza_carrito_y_total():
     _app = QApplication.instance() or QApplication([])
     ctx = _ctx()

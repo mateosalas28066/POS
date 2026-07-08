@@ -1,4 +1,9 @@
-"""Pantalla de devoluciones: buscar venta, elegir cantidades, reembolsar."""
+"""Diálogo de devolución: buscar factura, elegir cantidades, reembolsar.
+
+Reusa `ServicioDevolucion` de `core` (misma regla que antes usaba
+`PantallaDevoluciones`); aquí solo cambia el envoltorio de UI a un `QDialog`
+que se abre desde la pantalla de Venta.
+"""
 from __future__ import annotations
 
 from datetime import datetime
@@ -6,15 +11,15 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from PySide6.QtCore import Signal, Slot
 from PySide6.QtWidgets import (
-    QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton,
-    QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
+    QDialog, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton,
+    QTableWidget, QTableWidgetItem, QVBoxLayout,
 )
 
 from caja.contexto import EFECTIVO_MEDIO_PAGO_ID, ContextoApp
 from caja.dialogos.dialogo_cobro import DialogoCobro
 from caja.formato import formato_cantidad, formato_moneda
 from caja.widgets import DecimalSpinBoxPos
-from core.entidades import ItemDevolucion, Pago, Venta
+from core.entidades import Devolucion, ItemDevolucion, Pago, Venta
 from core.servicio_venta import (
     CantidadDevueltaExcede, ReembolsoDescuadrado, VentaNoDevolvible, VentaNoEncontrada,
 )
@@ -23,18 +28,21 @@ CERO = Decimal("0")
 _COLS = ["Producto", "Vendido", "Ya devuelto", "Remanente", "A devolver"]
 
 
-class PantallaDevoluciones(QWidget):
+class DialogoDevolucion(QDialog):
+    """Devuelve líneas de una factura y reembolsa, reusando ServicioDevolucion."""
+
     caja_cambiada = Signal()
 
-    def __init__(self, ctx: ContextoApp) -> None:
-        super().__init__()
+    def __init__(self, ctx: ContextoApp, parent=None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Devolución")
         self._ctx = ctx
         self._venta: Venta | None = None
         self._spins: list[DecimalSpinBoxPos] = []
         self._remanentes: list[Decimal] = []
 
         self._id_venta = QLineEdit()
-        self._id_venta.setPlaceholderText("ID de venta")
+        self._id_venta.setPlaceholderText("ID de venta / factura")
         boton_buscar = QPushButton("Buscar")
         boton_buscar.clicked.connect(self._buscar)
         barra = QHBoxLayout()
@@ -65,18 +73,11 @@ class PantallaDevoluciones(QWidget):
         layout.addWidget(self._lbl_total)
         layout.addWidget(self._boton_procesar)
 
-    def al_mostrar(self) -> None:
-        self._limpiar()
-
-    def _limpiar(self) -> None:
-        self._venta = None
-        self._spins = []
-        self._remanentes = []
-        self._tabla.setRowCount(0)
-        self._resumen.setText("")
-        self._estado.setText("")
-        self._lbl_total.setText(formato_moneda(CERO))
-        self._boton_procesar.setEnabled(False)
+    # ---- carga de la factura ----
+    def cargar_factura(self, venta_id: int) -> None:
+        """Carga programática de una venta por id (equivale a teclear el id y Buscar)."""
+        self._id_venta.setText(str(venta_id))
+        self._buscar()
 
     @Slot()
     def _buscar(self) -> None:
@@ -115,6 +116,21 @@ class PantallaDevoluciones(QWidget):
             self._remanentes.append(remanente)
         self._refrescar_total()
 
+    def _limpiar(self) -> None:
+        self._venta = None
+        self._spins = []
+        self._remanentes = []
+        self._tabla.setRowCount(0)
+        self._resumen.setText("")
+        self._estado.setText("")
+        self._lbl_total.setText(formato_moneda(CERO))
+        self._boton_procesar.setEnabled(False)
+
+    # ---- selección de cantidades ----
+    def marcar_devolucion(self, linea_idx: int, cantidad) -> None:
+        """Marca cuánto devolver en una línea (por índice de la factura cargada)."""
+        self._spins[linea_idx].setValue(float(cantidad))
+
     def _items_a_devolver(self) -> list[ItemDevolucion]:
         items: list[ItemDevolucion] = []
         for linea, spin in zip(self._venta.lineas, self._spins):
@@ -139,6 +155,7 @@ class PantallaDevoluciones(QWidget):
         self._lbl_total.setText(formato_moneda(total))
         self._boton_procesar.setEnabled(total > CERO)
 
+    # ---- confirmación ----
     @Slot()
     def _abrir_reembolso(self) -> None:
         if self._venta is None:
@@ -146,13 +163,24 @@ class PantallaDevoluciones(QWidget):
         total = self._total_a_devolver()
         dlg = DialogoCobro(total, self._ctx.repo_medios_pago.listar(),
                            modo="reembolso", efectivo_id=EFECTIVO_MEDIO_PAGO_ID, parent=self)
-        if dlg.exec() == DialogoCobro.Accepted:
-            self._procesar(dlg.pagos())
+        if dlg.exec() != DialogoCobro.Accepted:
+            return
+        resultado = self.confirmar(dlg.pagos())
+        if resultado is not None:
+            QMessageBox.information(self, "Devolución", "Devolución procesada.")
+            self.accept()
 
-    def _procesar(self, pagos: list[Pago]) -> None:
+    def confirmar(self, pagos: list[Pago] | None = None) -> Devolucion | None:
+        """Procesa la devolución con `ServicioDevolucion`. Si no se pasan pagos,
+        reembolsa el total en efectivo. Devuelve la `Devolucion` o None si falló."""
+        if self._venta is None:
+            return None
+        total = self._total_a_devolver()
+        if pagos is None:
+            pagos = [Pago(medio_pago_id=EFECTIVO_MEDIO_PAGO_ID, monto=total)]
         sesion = self._ctx.repo_sesiones.abierta()
         try:
-            self._ctx.svc_devolucion.devolver(
+            guardada = self._ctx.svc_devolucion.devolver(
                 self._venta.id, self._items_a_devolver(), pagos,
                 fecha=datetime.now(),
                 caja_sesion_id=sesion.id if sesion else None,
@@ -160,10 +188,6 @@ class PantallaDevoluciones(QWidget):
         except (VentaNoEncontrada, VentaNoDevolvible, CantidadDevueltaExcede,
                 ReembolsoDescuadrado) as exc:
             self._estado.setText(f"Error: {exc}")
-            return
-        except Exception as exc:  # noqa: BLE001
-            QMessageBox.critical(self, "Error", str(exc))
-            return
-        QMessageBox.information(self, "Devolución", "Devolución procesada.")
-        self._limpiar()
+            return None
         self.caja_cambiada.emit()
+        return guardada

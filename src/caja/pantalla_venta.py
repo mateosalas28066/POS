@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
 
 from caja.contexto import EFECTIVO_MEDIO_PAGO_ID, ContextoApp
 from caja.dialogos.dialogo_cobro import DialogoCobro
+from caja.dialogos.dialogo_devolucion import DialogoDevolucion
 from caja.formato import formato_cantidad, formato_moneda
 from caja.widgets import DecimalSpinBoxPos, TarjetaProducto
 from core.entidades import LineaVenta, Pago, Producto
@@ -68,6 +69,8 @@ class PantallaVenta(QWidget):
         self._lbl_total.setObjectName("kpi-valor")
         boton_quitar = QPushButton("Quitar ítem")
         boton_quitar.clicked.connect(self._quitar_seleccionado)
+        self._boton_devolucion = QPushButton("Devolución")
+        self._boton_devolucion.clicked.connect(self._abrir_devolucion)
         self._boton_cobrar = QPushButton("Cobrar")
         self._boton_cobrar.setObjectName("primario")
         self._boton_cobrar.clicked.connect(self._cobrar)
@@ -104,6 +107,7 @@ class PantallaVenta(QWidget):
         der.addWidget(QLabel("Total"))
         der.addWidget(self._lbl_total)
         der.addWidget(boton_quitar)
+        der.addWidget(self._boton_devolucion)
         der.addWidget(self._boton_cobrar)
 
         raiz = QHBoxLayout(self)
@@ -331,6 +335,14 @@ class PantallaVenta(QWidget):
     def _actualizar_boton_cobrar(self) -> None:
         hay_caja = self._ctx.repo_sesiones.abierta() is not None
         self._boton_cobrar.setEnabled(hay_caja and bool(self._venta.lineas))
+
+    # ---- devolución ----
+    @Slot()
+    def _abrir_devolucion(self) -> None:
+        dlg = DialogoDevolucion(self._ctx, parent=self)
+        dlg.caja_cambiada.connect(self.caja_cambiada)
+        dlg.exec()
+        self._refrescar_carrito()
 
     # ---- cobro ----
     @Slot()

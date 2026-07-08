@@ -18,7 +18,6 @@ from caja.pantalla_clientes import PantallaClientes
 from caja.pantalla_compras import PantallaCompras
 from caja.pantalla_cuentas import PantallaCuentas
 from caja.pantalla_despiece import PantallaDespiece
-from caja.pantalla_devoluciones import PantallaDevoluciones
 from caja.pantalla_gastos import PantallaGastos
 from caja.pantalla_inventario import PantallaInventario
 from caja.pantalla_proveedores import PantallaProveedores
