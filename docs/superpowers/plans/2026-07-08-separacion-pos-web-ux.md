@@ -1,5 +1,20 @@
 # Separación POS ↔ Web y limpieza de UI/UX — Plan de implementación
 
+> **✅ COMPLETADO (2026-07-08).** Las 5 fases están implementadas, verdes y commiteadas
+> en ambos repos (`w:\POS` rama `feature/plataforma-web-fase-0-1`, `w:\pos-plataforma-web` rama `master`):
+> - **A · SHELL** — shell y UX base (POS rail de 4 vistas + cabecera/perfil; web Sidebar/CabeceraVista/MenuPerfil).
+> - **B · DEVOL** — devolución integrada en Venta; se elimina `PantallaDevoluciones`.
+> - **C · TERC** — clientes·proveedores·compras·gastos·cuentas en web (migración `008_terceros.sql`); se retiran las 5 pantallas del POS.
+> - **D · DESP** — despiece en web (migración `009_despiece.sql`); se retira `PantallaDespiece`.
+> - **E · ADMIN** — usuarios/roles + reportes de negocio en web (migración `010_usuarios_admin.sql`); se retira `PantallaUsuarios` (login se queda).
+>
+> **Gates finales:** backend `97 passed` (pos_test), POS `482 passed`, front `tsc -b`+`build`+`oxlint` limpios.
+> Migraciones 008/009/010 aplicadas también a la **BD real** de Supabase (registradas en `schema_migraciones`).
+> **Decisión de alcance:** `por_cajero_de_sesion` NO se portó a la web (es cierre de caja, propio del POS).
+> **Resultado:** POS = Venta·Inventario·Reportes·Cierre; web = Inicio·Reportes·Catálogo·Inventario·Terceros·Despiece·Usuarios.
+> El detalle por epic vive en [docs/README-pos.md](../../README-pos.md) (filas SHELL/DEVOL/TERC/DESP/ADMIN).
+> Los checkboxes `- [ ]` de abajo son el registro histórico de ejecución task-a-task.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Reenfocar el POS al mostrador (Venta · Inventario · Reportes · Cierre) y volver la plataforma web la administradora (Terceros y finanzas, Despiece, Usuarios, Reportes completos), reusando `core` sin reescribir reglas, con UI/UX consistente (cabecera icono+título y menú de perfil en ambos).

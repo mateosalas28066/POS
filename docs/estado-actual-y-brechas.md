@@ -1,6 +1,13 @@
 # pos-siesa-remake — Estado actual del código, planes y brechas
 
 > Fecha de corte: **2026-07-05**. Rama: `master`. Suite: **395 passed** (último registro en README-pos, 2026-07-02).
+>
+> ⚠️ **Snapshot con fecha de corte.** Después del corte aterrizó la **separación POS↔web**
+> (epics SHELL·DEVOL·TERC·DESP·ADMIN, 2026-07-08): terceros, despiece, usuarios y reportes se
+> movieron del POS a la web reusando `core`; el POS quedó en Venta·Inventario·Reportes·Cierre.
+> El estado vigente por epic vive en [README-pos.md](README-pos.md); la brecha de **sync
+> multi-local (E8)** sigue abierta (🟡 parcial).
+>
 > Propósito: inventario exhaustivo —apartado por apartado, vista por vista, función por función—
 > de lo que existe hoy en el código local, lo planificado en specs/planes, y las brechas frente a
 > los **nuevos requisitos** (`requeriminetos_new.md`): inventario en la nube con sincronización
