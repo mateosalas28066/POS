@@ -1,7 +1,14 @@
 # Análisis: requerimientos del cliente vs estado actual (2026-07-01)
 
 Comparación entre los **requerimientos del cliente** (supermercado/carnicería multi-local) y el
-estado actual de **pos-siesa-remake** (335 tests en verde, rama `fix/errores-acumulados`).
+estado actual de **pos-siesa-remake**.
+
+> **Reconciliado 2026-07-08:** este análisis es del 2026-07-01 y quedó anterior al track **NUBE**
+> (0/1/2/3). La **Fase 5 — Multi-local** ya está entregada por ese track (sync outbox, catálogo
+> bidireccional, inventario multi-bodega **con traslados**, aislamiento por evento). Las secciones
+> §7 (traslados), §9 (conexión) y el roadmap Fase 5 se actualizaron abajo. Suite actual: **448
+> passed** en el POS. Único reporte del cliente aún pendiente: **traslados entre locales** (la
+> función existe; falta el reporte). Fuente de verdad viva: [README-pos.md](README-pos.md).
 
 Leyenda: ✅ implementado · 🟡 parcial · ❌ no existe · 📐 diseñado (costura lista, sin implementar)
 
@@ -56,8 +63,12 @@ Leyenda: ✅ implementado · 🟡 parcial · ❌ no existe · 📐 diseñado (co
 
 ### 7. Traslado de mercancía entre locales
 
-❌ No existe. `sync_pdv/` está 📐 diseñado (patrón outbox, E8) pero vacío. Hoy el sistema es
-mono-local por diseño (offline-first, "costuras para multi-local mañana").
+✅ **Implementado (NUBE2·OlaB, 2026-07-07).** `ubicaciones` compartidas + movimientos append-only
+(entrada/salida/ajuste/**traslado**+confirmación/conversión); el admin registra un traslado
+origen→destino (encola al outbox) y confirma la entrada desde la **bandeja de pendientes**; el
+stock se descuenta/acredita por ubicación. `sync_pdv/` ya no está vacío: outbox + `ClienteSync`
++ push periódico. **Pendiente solo el reporte de traslados** (la operación existe; falta
+`ServicioReportes.traslados()` + pestaña).
 
 ### 8. Compras a proveedores
 
@@ -70,7 +81,11 @@ peso), genera los movimientos de inventario y actualiza el costo de cada corte. 
 
 ### 9. Conexión entre comercios
 
-📐 Diseñado (outbox E8), no implementado. Misma costura que traslados y multi-local.
+✅ **Implementado (NUBE0/1/2, 2026-07-06→07).** El mecanismo de sync (outbox local → `/sync/push`
+idempotente, pull de catálogo `/sync/catalogo` e inventario `/sync/inventario`) conecta cada POS
+con la plataforma web en la nube (`pos-plataforma-web`), compartiendo maestro de catálogo,
+inventario multi-bodega y consolidados en el dashboard web. Aislamiento de escritura por evento
+en NUBE3.
 
 ### 10. Reportes mensuales
 
@@ -95,7 +110,7 @@ registra, lista por período y administra categorías (solo admin).
 | Gastos | ✅ (Fase 4: `PantallaGastos` + mensual) |
 | Cuentas por cobrar | ✅ (Fase 3: `PantallaCuentas` "Por cobrar") |
 | Cuentas por pagar | ✅ (Fase 3: `PantallaCuentas` "Por pagar") |
-| Inventario trasladado entre locales | ❌ (depende de Traslados) |
+| Inventario trasladado entre locales | 🟡 (traslados implementados en NUBE2·OlaB; falta el **reporte** dedicado) |
 | Historial de compras por proveedor | ✅ (Fase 2: `compras_por_proveedor`) |
 
 ---
@@ -149,10 +164,10 @@ controlar inventario y plata), después lo multi-local, y al final lo que no es 
 - ✅ Registro de gastos con clasificación (arriendo, servicios, transporte…), pagado desde caja (egreso de Fase 1) cuando es en efectivo.
 - ✅ Reporte mensual consolidado: ventas + compras + gastos + CxC + CxP en una vista.
 
-**Fase 5 — Multi-local** *(activar las costuras 📐)*
-- Implementar `sync_pdv` (outbox E8): identidad de local, transmisión/recepción.
-- Traslados de mercancía: documento origen→destino, descuenta/acredita stock, historial y reporte.
-- "Conexión entre comercios" = este mismo mecanismo de sync compartiendo maestros/consolidados.
+**Fase 5 — Multi-local** *(activar las costuras 📐)* ✅ **implementada vía track NUBE** (0/1/2/3, 2026-07-06→08)
+- ✅ `sync_pdv` (outbox E8): identidad de local (`LOCAL_ID`/`LOCAL_TOKEN`), push periódico y pull de catálogo/inventario (NUBE0/1).
+- ✅ Traslados de mercancía: documento origen→destino, descuenta/acredita stock, bandeja de pendientes + confirmación (NUBE2·OlaB). **Falta solo el reporte de traslados.**
+- ✅ "Conexión entre comercios" = el mismo mecanismo de sync compartiendo maestro de catálogo, inventario multi-bodega y consolidados en el dashboard web (NUBE2), con aislamiento de escritura por evento (NUBE3).
 
 ### Vía paralela — obligación legal
 
@@ -173,6 +188,6 @@ controlar inventario y plata), después lo multi-local, y al final lo que no es 
 | 2 | Proveedores + Compras (incl. canal) | 5, 8 |
 | 3 | CxC (fiado) + CxP | 3 |
 | 4 | Gastos + reporte mensual consolidado | 10, 11 |
-| 5 | Sync multi-local + traslados | 7, 9 |
+| 5 ✅ | Sync multi-local + traslados (track NUBE 0/1/2/3) — falta solo el reporte de traslados | 7, 9 |
 | ∥ | DIAN | obligación legal |
 | Extra | Nómina y demás | 4 |
