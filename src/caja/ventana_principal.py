@@ -14,7 +14,6 @@ from caja.contexto import EFECTIVO_MEDIO_PAGO_ID, ContextoApp
 from caja.dialogos.dialogo_cambio_password import DialogoCambioPassword
 from caja.formato import formato_moneda
 from caja.pantalla_cierre import PantallaCierre
-from caja.pantalla_despiece import PantallaDespiece
 from caja.pantalla_inventario import PantallaInventario
 from caja.pantalla_reportes import PantallaReportes
 from caja.pantalla_usuarios import PantallaUsuarios
