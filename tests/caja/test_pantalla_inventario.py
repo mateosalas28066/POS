@@ -98,3 +98,23 @@ def test_confirmar_pendiente_desde_bandeja_flip_y_encola(monkeypatch):
     assert dlg._tabla.rowCount() == 0   # ya no está pendiente
     eventos = [e for e in ctx.repo_outbox.pendientes() if e.tipo == "movimiento_inventario"]
     assert len(eventos) == 1 and eventos[0].payload["estado"] == "confirmado"
+
+
+def test_bandeja_muestra_traslado_entrante_cuando_origen_none(monkeypatch):
+    # Entrada pendiente tal como llega del sync cross-local: origen_id=None (la salida
+    # vive en el origen y no se sincroniza al destino). La columna "Desde" no debe decir "None".
+    monkeypatch.setenv("LOCAL_ID", "local-02")
+    monkeypatch.setenv("ALMACEN_ID", "8")
+    monkeypatch.delenv("SYNC_URL", raising=False)
+    ctx = ContextoApp.crear(":memory:")
+    _app = QApplication.instance() or QApplication([])
+    prod_id = ctx.repo_productos.listar()[0].id
+    ctx.repo_movimientos_ubicacion.registrar({
+        "uuid": "e-x", "tipo": "entrada", "producto_id": prod_id, "cantidad": Decimal("10"),
+        "origen_id": None, "destino_id": 8, "estado": "pendiente", "grupo_uuid": "g9",
+        "fecha": __import__("datetime").datetime.now()})
+
+    from caja.dialogos.dialogo_bandeja_pendientes import DialogoBandejaPendientes
+    dlg = DialogoBandejaPendientes(ctx)
+    assert dlg._tabla.rowCount() == 1
+    assert dlg._tabla.item(0, 2).text() == "Traslado entrante"
