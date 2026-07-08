@@ -14,11 +14,12 @@ from caja.contexto import ContextoApp  # noqa: E402
 from caja.ventana_principal import VentanaPrincipal  # noqa: E402
 
 
-def test_shell_registra_todas_las_pantallas():
+def test_shell_registra_las_pantallas_del_mostrador():
     _app = QApplication.instance() or QApplication([])
     win = VentanaPrincipal(ContextoApp.crear(":memory:"))
-    assert len(win._pantallas) == 11
-    assert win._stack.count() == 11
+    # POS reenfocado: Venta · Inventario · Reportes · Cierre.
+    assert len(win._pantallas) == 4
+    assert win._stack.count() == 4
 
 
 def test_tablas_configuradas_para_ajustar_texto():
@@ -48,22 +49,13 @@ def test_barra_estado_refleja_caja_abierta():
     assert "abierta" in win.statusBar().currentMessage().lower()
 
 
-from core.entidades import Usuario  # noqa: E402
-
-
 def _tooltips(win):
     return {b.toolTip() for b in win._botones}
 
 
-def test_rail_muestra_usuarios_solo_a_admin():
+def test_rail_solo_muestra_vistas_del_mostrador():
     _app = QApplication.instance() or QApplication([])
-    ctx = ContextoApp.crear(":memory:")
-    ctx.usuario_actual = Usuario(nombre="admin", rol="admin", id=1)
-    assert "Usuarios" in _tooltips(VentanaPrincipal(ctx))
-
-
-def test_rail_oculta_usuarios_a_cajero():
-    _app = QApplication.instance() or QApplication([])
-    ctx = ContextoApp.crear(":memory:")
-    ctx.usuario_actual = Usuario(nombre="c", rol="cajero", id=2)
-    assert "Usuarios" not in _tooltips(VentanaPrincipal(ctx))
+    win = VentanaPrincipal(ContextoApp.crear(":memory:"))
+    assert _tooltips(win) == {"Venta", "Inventario", "Reportes", "Cierre"}
+    # La gestión de usuarios se administra en la web, no en el POS.
+    assert "Usuarios" not in _tooltips(win)

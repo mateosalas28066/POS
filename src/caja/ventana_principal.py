@@ -4,9 +4,10 @@ from __future__ import annotations
 from decimal import Decimal
 
 from PySide6.QtCore import QTimer, Slot
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
-    QButtonGroup, QDialog, QHBoxLayout, QLabel, QMainWindow, QPushButton,
-    QStackedWidget, QTableView, QVBoxLayout, QWidget,
+    QButtonGroup, QDialog, QHBoxLayout, QLabel, QMainWindow, QMenu,
+    QPushButton, QStackedWidget, QTableView, QToolButton, QVBoxLayout, QWidget,
 )
 
 from caja.contexto import EFECTIVO_MEDIO_PAGO_ID, ContextoApp
@@ -25,23 +26,17 @@ from caja.pantalla_reportes import PantallaReportes
 from caja.pantalla_usuarios import PantallaUsuarios
 from caja.pantalla_venta import PantallaVenta
 from caja.tema import icono
-from caja.widgets import BotonRail, configura_tabla
-from core.permisos import ACCION_GESTIONAR_USUARIOS, puede
+from caja.widgets import BotonRail, CabeceraVista, configura_tabla
+from core.permisos import puede
 
-# (icono, tooltip, factory, permiso)
+# (icono, titulo, factory, permiso) — icono distinto por vista.
+# POS reenfocado al mostrador: Venta · Inventario · Reportes · Cierre.
+# Terceros/finanzas, Despiece, Devoluciones y Usuarios viven en la web (o en Venta).
 _DEFINICION = [
     ("venta", "Venta", PantallaVenta, None),
     ("inventario", "Inventario", PantallaInventario, None),
-    ("clientes", "Clientes", PantallaClientes, None),
-    ("clientes", "Proveedores", PantallaProveedores, None),
-    ("inventario", "Compras", PantallaCompras, None),
-    ("clientes", "Cuentas", PantallaCuentas, None),
-    ("inventario", "Gastos", PantallaGastos, None),
-    ("inventario", "Despiece", PantallaDespiece, None),
-    ("devoluciones", "Devoluciones", PantallaDevoluciones, None),
     ("reportes", "Reportes", PantallaReportes, None),
     ("cierre", "Cierre", PantallaCierre, None),
-    ("clientes", "Usuarios", PantallaUsuarios, ACCION_GESTIONAR_USUARIOS),
 ]
 
 
@@ -74,17 +69,31 @@ class VentanaPrincipal(QMainWindow):
             rail_layout.addWidget(boton)
             self._botones.append(boton)
         rail_layout.addStretch(1)
-        if ctx.usuario_actual is not None:
-            boton_pwd = BotonRail(icono("clientes"), "Cambiar mi contraseña")
-            boton_pwd.setCheckable(False)
-            boton_pwd.clicked.connect(self._cambiar_password)
-            rail_layout.addWidget(boton_pwd)
+        self._visibles = visibles
+
+        # Cabecera superior (icono+título de la vista activa) + menú de perfil.
+        self._cabecera = CabeceraVista(icono(_DEFINICION[0][0]), _DEFINICION[0][1])
+        self._boton_perfil = QToolButton()
+        self._boton_perfil.setObjectName("perfil")
+        self._boton_perfil.setIcon(QIcon(icono("perfil")))
+        self._boton_perfil.setPopupMode(QToolButton.InstantPopup)
+        self._menu_perfil = QMenu(self._boton_perfil)
+        self._menu_perfil.addAction("Cambiar mi contraseña", self._cambiar_password)
+        self._menu_perfil.addAction("Cerrar sesión", self.close)
+        self._boton_perfil.setMenu(self._menu_perfil)
+        self._cabecera.layout().addWidget(self._boton_perfil)
+
+        cuerpo = QWidget()
+        cuerpo_lay = QVBoxLayout(cuerpo)
+        cuerpo_lay.setContentsMargins(0, 0, 0, 0)
+        cuerpo_lay.addWidget(self._cabecera)
+        cuerpo_lay.addWidget(self._stack, 1)
 
         central = QWidget(); central.setObjectName("fondo")
         layout = QHBoxLayout(central)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(rail)
-        layout.addWidget(self._stack, 1)
+        layout.addWidget(cuerpo, 1)
         self.setCentralWidget(central)
 
         # Legibilidad uniforme: todas las tablas de las pantallas ajustan columnas
@@ -126,6 +135,8 @@ class VentanaPrincipal(QMainWindow):
 
     def _ir_a(self, indice: int) -> None:
         self._stack.setCurrentIndex(indice)
+        ic, titulo, _f, _p = self._visibles[indice]
+        self._cabecera.set_vista(icono(ic), titulo)
         pantalla = self._pantallas[indice]
         if hasattr(pantalla, "al_mostrar"):
             pantalla.al_mostrar()

@@ -26,12 +26,34 @@ QToolButton#rail {
     background-color: #151A25;
     border: none;
     border-left: 3px solid transparent;
-    padding: 12px 0px;
+    padding: 10px 0px;
+    min-width: 72px;
+    color: #8B95A8;
+    font-size: 11px;
 }
 QToolButton#rail:checked {
     background-color: #1E2330;
     border-left: 3px solid #E01E26;
+    color: #F0F2F5;
 }
+
+/* Cabecera superior de cada vista: icono distintivo + título legible. */
+QFrame#cabecera-vista {
+    background-color: #1E2330;
+    border-bottom: 1px solid #2E3548;
+}
+QLabel#titulo-vista { font-size: 20px; font-weight: bold; color: #F0F2F5; }
+
+/* Menú de perfil: touch target cómodo, sin rojo. */
+QToolButton#perfil {
+    min-width: 40px;
+    min-height: 40px;
+    border: 1px solid #2E3548;
+    border-radius: 20px;
+    background-color: #151A25;
+}
+QToolButton#perfil:hover { border-color: #8B95A8; }
+QToolButton#perfil::menu-indicator { image: none; }
 
 QLabel#kpi-valor { font-family: "Geist Mono"; font-size: 22px; font-weight: bold; color: #F0F2F5; }
 QLabel#secundario { color: #8B95A8; }

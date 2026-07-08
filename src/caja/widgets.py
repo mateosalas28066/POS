@@ -6,8 +6,8 @@ from pathlib import Path
 from PySide6.QtCore import QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import (
-    QDoubleSpinBox, QFrame, QHeaderView, QLabel, QSpinBox, QTableView,
-    QToolButton, QVBoxLayout,
+    QDoubleSpinBox, QFrame, QHBoxLayout, QHeaderView, QLabel, QSpinBox,
+    QTableView, QToolButton, QVBoxLayout,
 )
 
 from caja.formato import formato_moneda
@@ -162,14 +162,37 @@ class TarjetaKpi(QFrame):
         self._valor.style().polish(self._valor)
 
 
+class CabeceraVista(QFrame):
+    """Franja superior de cada vista: icono distintivo + título legible."""
+
+    def __init__(self, ruta_icono: str, titulo: str) -> None:
+        super().__init__()
+        self.setObjectName("cabecera-vista")
+        self._icono = QLabel()
+        self._icono.setObjectName("icono-vista")
+        self._titulo = QLabel(titulo)
+        self._titulo.setObjectName("titulo-vista")
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(16, 10, 16, 10)
+        layout.addWidget(self._icono)
+        layout.addWidget(self._titulo)
+        layout.addStretch(1)
+        self.set_vista(ruta_icono, titulo)
+
+    def set_vista(self, ruta_icono: str, titulo: str) -> None:
+        self._icono.setPixmap(QIcon(ruta_icono).pixmap(QSize(22, 22)))
+        self._titulo.setText(titulo)
+
+
 class BotonRail(QToolButton):
-    """Botón del rail de navegación: icono + tooltip, checkable exclusivo."""
+    """Botón del rail de navegación: icono + etiqueta bajo el icono, checkable."""
 
     def __init__(self, ruta_icono: str, tooltip: str) -> None:
         super().__init__()
         self.setObjectName("rail")
         self.setCheckable(True)
         self.setToolTip(tooltip)
+        self.setText(tooltip)
         self.setIcon(QIcon(ruta_icono))
         self.setIconSize(QSize(24, 24))
-        self.setToolButtonStyle(Qt.ToolButtonIconOnly)
+        self.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
